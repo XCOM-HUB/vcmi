@@ -369,11 +369,6 @@ jobs:
     steps:
         - uses: actions/checkout@v4
 
-        - uses: actions/setup-python@v5
-          if: "${{ matrix.conan_profile != '' }}"
-          with:
-            python-version: '3.10'
-
         - name: Ensure LF line endings
           run: |
             find . -path ./.git -prune -o -path ./AI/FuzzyLite -prune -o -path ./test/googletest \
