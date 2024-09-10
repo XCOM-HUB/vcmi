@@ -48,7 +48,7 @@ class VCMI(ConanFile):
         self.options["freetype"].shared = self.settings.os == "Android"
 
         # SDL_image and Qt depend on it, in iOS both are static
-        self.options["libpng"].shared = not self.settings.os != "iOS"
+        self.options["libpng"].shared = self.settings.os != "iOS"
         # static Qt for iOS is the only viable option at the moment
         self.options["qt"].shared = self.settings.os != "iOS"
 
@@ -65,9 +65,13 @@ class VCMI(ConanFile):
             self.options["sdl_mixer"].shared = True
             self.options["sdl_ttf"].shared = True
 
-        if self.settings.os == "iOS":
-            #TODO: ios - newer sdl fails to link
+        if self.settings.os == "iOS": 
+            # TODO: ios - newer sdl fails to link
             self.requires("sdl/2.26.1")
+            self.requires("sdl_mixer/2.0.4")
+        elif self.settings.os == "Android":
+            # TODO: android - crash on app start
+            self.requires("sdl/2.26.5")
             self.requires("sdl_mixer/2.0.4")
         else:
             # SDL versions between 2.22-2.26.1 have broken sound
