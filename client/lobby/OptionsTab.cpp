@@ -41,6 +41,7 @@
 #include "../../lib/entities/faction/CTownHandler.h"
 #include "../../lib/entities/hero/CHeroHandler.h"
 #include "../../lib/entities/hero/CHeroClass.h"
+#include "../../lib/entities/ResourceTypeHandler.h"
 #include "../../lib/filesystem/Filesystem.h"
 #include "../../lib/networkPacks/PacksForLobby.h"
 #include "../../lib/texts/CGeneralTextHandler.h"
@@ -161,8 +162,6 @@ size_t OptionsTab::CPlayerSettingsHelper::getImageIndex(bool big)
 				return GEM;
 			case EGameResID::GOLD:
 				return GOLD;
-			case EGameResID::MITHRIL:
-				return MITHRIL;
 			}
 		}
 		}
@@ -821,6 +820,7 @@ OptionsTab::HandicapWindow::HandicapWindow()
 		INCOME = 1000,
 		GROWTH = 2000,
 	};
+	// TODO: configurable resources
 	auto columns = std::vector<int>{EGameResID::GOLD, EGameResID::WOOD, EGameResID::MERCURY, EGameResID::ORE, EGameResID::SULFUR, EGameResID::CRYSTAL, EGameResID::GEMS, Columns::INCOME, Columns::GROWTH};
 
 	int i = 0;
@@ -1057,7 +1057,7 @@ OptionsTab::PlayerOptionsEntry::PlayerOptionsEntry(const PlayerSettings & S, con
 		{
 			auto str = MetaString::createFromTextID("vcmi.lobby.handicap");
 			str.appendRawString(":\n");
-			for(auto & res : EGameResID::ALL_RESOURCES())
+			for(auto & res : LIBRARY->resourceTypeHandler->getAllObjects())
 				if(s->handicap.startBonus[res] != 0)
 				{
 					str.appendRawString("\n");

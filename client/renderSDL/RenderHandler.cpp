@@ -43,6 +43,7 @@
 #include <vcmi/Services.h>
 #include <vcmi/SkillService.h>
 #include <vcmi/spells/Service.h>
+#include <vcmi/ResourceTypeService.h>
 
 RenderHandler::RenderHandler()
 	:assetGenerator(std::make_unique<AssetGenerator>())
@@ -230,7 +231,10 @@ std::shared_ptr<ISharedImage> RenderHandler::loadImageFromFileUncached(const Ima
 
 		auto generated = assetGenerator->generateImage(imagePath);
 		if (generated)
+		{
+			generated->setAsyncUpscale(false); // do not async upscale base image for generated images -> fixes #6201
 			return generated;
+		}
 
 		logGlobal->error("Failed to load image %s", locator.image->getOriginalName());
 		return std::make_shared<SDLImageShared>(ImagePath::builtin("DEFAULT"));
@@ -486,7 +490,7 @@ void RenderHandler::onLibraryLoadingFinished(const Services * services)
 {
 	assert(animationLayouts.empty());
 	assetGenerator->initialize();
-	animationLayouts = assetGenerator->generateAllAnimations();
+	updateGeneratedAssets();
 
 	addImageListEntries(services->creatures());
 	addImageListEntries(services->heroTypes());
@@ -494,6 +498,7 @@ void RenderHandler::onLibraryLoadingFinished(const Services * services)
 	addImageListEntries(services->factions());
 	addImageListEntries(services->spells());
 	addImageListEntries(services->skills());
+	addImageListEntries(services->resources());
 
 	if (settings["mods"]["validation"].String() == "full")
 	{
@@ -539,4 +544,15 @@ void RenderHandler::exportGeneratedAssets()
 {
 	for (const auto & entry : assetGenerator->generateAllImages())
 		entry.second->exportBitmap(VCMIDirs::get().userDataPath() / "Generated" / (entry.first.getOriginalName() + ".png"), nullptr);
+}
+
+std::shared_ptr<AssetGenerator> RenderHandler::getAssetGenerator()
+{
+	return assetGenerator;
+}
+
+void RenderHandler::updateGeneratedAssets()
+{
+	for (const auto& [key, value] : assetGenerator->generateAllAnimations())
+        animationLayouts[key] = value;
 }
