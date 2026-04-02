@@ -29,6 +29,8 @@ def detect(platform: str) -> Tuple[str, List[str], str]:
         return ("ccache", ["ccache", "-s"], "ios")
     if platform.startswith("android"):
         return ("ccache", ["ccache", "-s"], "android")
+    if platform.startswith("linux"):
+        return ("ccache", ["ccache", "-s"], "linux")
     return ("ccache", ["ccache", "-s"], "other")
 
 
@@ -77,10 +79,8 @@ def parse_sccache(text: str) -> Tuple[int, int]:
     return hits, misses
 
 
-def arch_label(platform: str, arch_env: Optional[str]) -> str:
-    """Produce a nice arch label; prefer ARCH env when present."""
-    if arch_env:
-        return arch_env
+def arch_label(platform: str) -> str:
+    """Produce a nice arch label."""
     mapping = {
         "mac-intel": "Intel",
         "mac-arm": "Apple Silicon",
@@ -93,6 +93,8 @@ def arch_label(platform: str, arch_env: Optional[str]) -> str:
         "android-32": "ARMv7",
         "android-64": "ARM64",
         "android-64-intel": "x86_64",
+        "linux-appimage-x64": "x86_64",
+        "linux-appimage-arm64": "ARM64",
     }
     return mapping.get(platform, platform)
 
@@ -100,7 +102,7 @@ def arch_label(platform: str, arch_env: Optional[str]) -> str:
 def main() -> int:
     # Prefer our explicit PLATFORM env; fall back to VS's "Platform" on Windows if needed.
     platform = os.getenv("PLATFORM") or os.getenv("Platform") or "unknown"
-    arch = arch_label(platform, os.getenv("ARCH"))
+    arch = arch_label(platform)
     tool, cmd, family = detect(platform)
 
     stats_raw = run(cmd)

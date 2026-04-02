@@ -35,7 +35,7 @@
 #include "../entities/ResourceTypeHandler.h"
 #include "../mapObjectConstructors/AObjectTypeHandler.h"
 #include "../mapObjectConstructors/CObjectClassesHandler.h"
-#include "../mapObjects/CGHeroInstance.h"
+#include "CGHeroInstance.h"
 #include "../modding/ModScope.h"
 #include "../networkPacks/StackLocation.h"
 #include "../networkPacks/PacksForClient.h"
@@ -276,6 +276,7 @@ CGTownInstance::CGTownInstance(IGameInfoCallback *cb):
 	alignmentToPlayer(PlayerColor::NEUTRAL),
 	spellResearchCounterDay(0),
 	spellResearchAcceptedCounter(0),
+	spellResearchPendingRerollsCounters(GameConstants::SPELL_LEVELS, 0),
 	spellResearchAllowed(true)
 {
 	attachTo(townAndVis);
@@ -651,16 +652,13 @@ BoatId CGTownInstance::getBoatType() const
 
 int CGTownInstance::getMarketEfficiency() const
 {
-	if(!hasBuiltSomeTradeBuilding())
+	if(!hasBuiltResourceMarketplace())
 		return 0;
 
 	const PlayerState *p = cb->getPlayerState(tempOwner);
 	assert(p);
 
-	int marketCount = 0;
-	for(const CGTownInstance *t : p->getTowns())
-		if(t->hasBuiltSomeTradeBuilding())
-			marketCount++;
+	int marketCount = p->valOfBonuses(BonusType::MARKETPLACE_ACCESS);
 
 	return marketCount;
 }
@@ -698,7 +696,15 @@ ObjectInstanceID CGTownInstance::getObjInstanceID() const
 
 void CGTownInstance::updateAppearance()
 {
-	auto terrain = cb->getTile(visitablePos())->getTerrainID();
+	const auto tile = cb->getTile(visitablePos());
+	if(!tile)
+	{
+		logGlobal->warn("Town is misplaced at (%d, %d, %d)", visitablePos().x,
+				visitablePos().y, visitablePos().z);
+		return;
+	}
+
+	auto terrain = tile->getTerrainID();
 	//FIXME: not the best way to do this
 	auto app = getObjectHandler()->getOverride(terrain, this);
 	if (app)
@@ -852,7 +858,7 @@ CBonusSystemNode & CGTownInstance::whatShouldBeAttached()
 
 std::string CGTownInstance::getNameTranslated() const
 {
-	return LIBRARY->generaltexth->translate(nameTextId);
+	return customName.empty() ? LIBRARY->generaltexth->translate(nameTextId) : customName;
 }
 
 std::string CGTownInstance::getNameTextID() const
@@ -865,6 +871,11 @@ void CGTownInstance::setNameTextId( const std::string & newName )
 	nameTextId = newName;
 }
 
+void CGTownInstance::setCustomName( const std::string & newName )
+{
+	customName = newName;
+}
+
 const CArmedInstance * CGTownInstance::getUpperArmy() const
 {
 	if(getGarrisonHero())
@@ -872,9 +883,10 @@ const CArmedInstance * CGTownInstance::getUpperArmy() const
 	return this;
 }
 
-bool CGTownInstance::hasBuiltSomeTradeBuilding() const
+bool CGTownInstance::hasBuiltResourceMarketplace() const
 {
-	return availableModes().empty() ? false : true;
+	const auto modes = availableModes();
+	return std::find(modes.begin(), modes.end(), EMarketMode::RESOURCE_RESOURCE) != modes.end();
 }
 
 bool CGTownInstance::hasBuilt(BuildingSubID::EBuildingSubID buildingID) const
@@ -890,13 +902,6 @@ bool CGTownInstance::hasBuilt(BuildingSubID::EBuildingSubID buildingID) const
 bool CGTownInstance::hasBuilt(const BuildingID & buildingID) const
 {
 	return vstd::contains(builtBuildings, buildingID);
-}
-
-bool CGTownInstance::hasBuilt(const BuildingID & buildingID, FactionID townID) const
-{
-	if (townID == getTown()->faction->getId() || townID == FactionID::ANY)
-		return hasBuilt(buildingID);
-	return false;
 }
 
 void CGTownInstance::addBuilding(const BuildingID & buildingID)
@@ -1161,7 +1166,12 @@ FactionID CGTownInstance::getFactionID() const
 
 TerrainId CGTownInstance::getNativeTerrain() const
 {
-	return getTown()->faction->getNativeTerrain();
+	auto const & terrain = getTown()->faction->getNativeTerrain();
+
+	if (!terrain.toEntity(LIBRARY)->isSurface() && !terrain.toEntity(LIBRARY)->isUnderground())
+		logMod->warn("Faction %s has terrain %s as native, but terrain is not suitable for either surface or subterranean layers!", getTown()->faction->getJsonKey(), terrain.toEntity(LIBRARY)->getJsonKey());
+
+	return terrain;
 }
 
 ArtifactID CGTownInstance::getWarMachineInBuilding(BuildingID building) const

@@ -114,7 +114,7 @@ const TerrainTile & MapRendererBaseContext::getMapTile(const int3 & coordinates)
 const MapRendererBaseContext::MapObjectsList & MapRendererBaseContext::getObjects(const int3 & coordinates) const
 {
 	assert(isInMap(coordinates));
-	return viewState.objects[coordinates.z][coordinates.x][coordinates.y];
+	return viewState.objects[coordinates];
 }
 
 const CGObjectInstance * MapRendererBaseContext::getObject(ObjectInstanceID objectID) const
@@ -228,6 +228,11 @@ bool MapRendererBaseContext::showVisitable() const
 }
 
 bool MapRendererBaseContext::showBlocked() const
+{
+	return false;
+}
+
+bool MapRendererBaseContext::showInvisible() const
 {
 	return false;
 }
@@ -360,6 +365,11 @@ bool MapRendererAdventureContext::showVisitable() const
 bool MapRendererAdventureContext::showBlocked() const
 {
 	return settingShowBlocked;
+}
+
+bool MapRendererAdventureContext::showInvisible() const
+{
+	return settingShowInvisible;
 }
 
 bool MapRendererAdventureContext::showTextOverlay() const

@@ -41,6 +41,12 @@ void ApplyOnServerAfterAnnounceNetPackVisitor::visitForLobby(CPackForLobby & pac
 	}
 }
 
+void ClientPermissionsCheckerNetPackVisitor::visitLobbyQuickLoadGame(LobbyQuickLoadGame & pack)
+{
+	// only host can load quicksave
+	result = srv.isClientHost(connection->connectionID);
+}
+
 void ClientPermissionsCheckerNetPackVisitor::visitLobbyClientConnected(LobbyClientConnected & pack)
 {
 	result = srv.getState() == EServerState::LOBBY;
@@ -110,6 +116,22 @@ void ClientPermissionsCheckerNetPackVisitor::visitLobbyChatMessage(LobbyChatMess
 	result = true;
 }
 
+void ApplyOnServerNetPackVisitor::visitLobbyQuickLoadGame(LobbyQuickLoadGame & pack)
+{
+	*srv.si = *srv.gh->gs->getStartInfo();
+	srv.prepareToRestart();
+	// modify StartInfo to load the quicksave
+	srv.si->mode = EStartMode::LOAD_GAME;
+	srv.si->mapname = pack.saveFilePath;
+	result = true;
+}
+
+void ApplyOnServerAfterAnnounceNetPackVisitor::visitLobbyQuickLoadGame(LobbyQuickLoadGame & pack)
+{
+	for(const auto & connection : srv.activeConnections)
+		connection->enterLobbyConnectionMode();
+}
+
 void ApplyOnServerNetPackVisitor::visitLobbySetMap(LobbySetMap & pack)
 {
 	if(srv.getState() != EServerState::LOBBY)
@@ -173,6 +195,7 @@ void ClientPermissionsCheckerNetPackVisitor::visitLobbyRestartGame(LobbyRestartG
 
 void ApplyOnServerNetPackVisitor::visitLobbyRestartGame(LobbyRestartGame & pack)
 {
+	*srv.si = *srv.gh->gs->getInitialStartInfo();
 	srv.prepareToRestart();
 
 	result = true;
@@ -385,10 +408,14 @@ void ApplyOnServerNetPackVisitor::visitLobbyPvPAction(LobbyPvPAction & pack)
 	result = true;
 }
 
-
 void ClientPermissionsCheckerNetPackVisitor::visitLobbyDelete(LobbyDelete & pack)
 {
 	result = srv.isClientHost(connection->connectionID);
+}
+
+void ClientPermissionsCheckerNetPackVisitor::visitLobbySetBattleOnlyModeStartInfo(LobbySetBattleOnlyModeStartInfo & pack)
+{
+	result = true;
 }
 
 void ApplyOnServerNetPackVisitor::visitLobbyDelete(LobbyDelete & pack)

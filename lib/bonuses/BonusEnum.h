@@ -194,8 +194,19 @@ class JsonNode;
 	BONUS_NAME(TRANSMUTATION_IMMUNITY) /*blocks TRANSMUTATION bonus*/\
 	BONUS_NAME(COMBAT_MANA_BONUS) /* Additional mana per combat */ \
 	BONUS_NAME(SPECIFIC_SPELL_RANGE) /* value used for allowed spell range, subtype - spell id */\
+	BONUS_NAME(HATES_TRAIT) /* affected unit deals additional damage to units with specific bonus. subtype - bonus, val - damage bonus percent */ \
+	BONUS_NAME(DAMAGE_RECEIVED_CAP) /* limits the damage dealt to affected unit */ \
+	BONUS_NAME(FORCE_NEUTRAL_ENCOUNTER_STACK_COUNT) /* Forces the number of neutral stacks in hero–neutral encounters.*/\
+	BONUS_NAME(ADJACENT_SPELLCASTER) /*Allows spellcasting units from adjacent tile, val - spell school level, subtype - spell id */\
+	BONUS_NAME(UNIT_DEFENDING) /* tag applied to units which are currently waiting in battle */\
+	BONUS_NAME(MARKETPLACE_ACCESS) \
+	BONUS_NAME(CPU_CONTROLLED) /* Makes unit CPU controller by default, like ballista. Currently, target picking uses custom server logic rather than using battle AI */ \
+	BONUS_NAME(DEITYOFFIRE) /* Controls special week */ \
+	BONUS_NAME(ON_COMBAT_EVENT) /* Allows triggering various effects on combat events */ \
+	BONUS_NAME(SPELL_CAST_COUNTER)  /*used to keep count how many times a particular spells has been cast*/
 	/* end of list */
 
+	/* end of list */
 
 #define BONUS_SOURCE_LIST \
 	BONUS_SOURCE(ARTIFACT)\
@@ -235,11 +246,14 @@ enum class BonusType : uint16_t
 #undef BONUS_NAME
     BUILTIN_BONUSES_COUNT
 };
+
+static_assert(static_cast<int>(BonusType::SPELL_DAMAGE_REDUCTION) == 50 && static_cast<int>(BonusType::SPECIAL_UPGRADE) == 100 && static_cast<int>(BonusType::BONUS_DAMAGE_PERCENTAGE) == 150, "DO NOT ADD OR REMOVE BONUSES FROM THE MIDDLE OF THE LIST. THIS WILL BREAK SAVES");
+
 namespace BonusDuration  //when bonus is automatically removed
 {
 	// We use uint16_t directly because std::bitset<11> eats whole 8 byte word.
 	using Type = uint16_t;
-	constexpr size_t Size = 11;
+	constexpr size_t Size = 13;
 
 	enum BonusDuration : Type {
 		PERMANENT = 1 << 0,
@@ -248,11 +262,14 @@ namespace BonusDuration  //when bonus is automatically removed
 		ONE_WEEK = 1 << 3, //at the end of week (bonus lasts till the end of week, thats NOT 7 days
 		N_TURNS = 1 << 4, //used during battles, after battle bonus is always removed
 		N_DAYS = 1 << 5,
-		UNTIL_BEING_ATTACKED = 1 << 6, /*removed after attack and counterattacks are performed*/
-		UNTIL_ATTACK = 1 << 7, /*removed after attack and counterattacks are performed*/
+		UNTIL_BEING_ATTACKED = 1 << 6, /*removed each time a creature is damaged*/
+		UNTIL_ATTACK = 1 << 7, /*removed after each attack or counterattack in a seuqence is performed */
 		STACK_GETS_TURN = 1 << 8, /*removed when stack gets its turn - used for defensive stance*/
 		COMMANDER_KILLED = 1 << 9,
 		UNTIL_OWN_ATTACK = 1 << 10 /*removed after attack is performed (not counterattack)*/,
+		UNTIL_TAKING_INDIRECT_DAMAGE = 1 << 11 /*removed after unit takes indirect damage (any damage except melee or range creature attacks, tower or ballista damage)*/,
+		UNTIL_AFTER_ATTACK_SEQUENCE = 1 << 12 /*removed on both the attacker and defendant after a full attacks and counterattack sequence is performed
+							(including creature attacks, towers and war machines)*/
 	};
 
 	extern JsonNode toJson(const Type & duration);

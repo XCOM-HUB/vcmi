@@ -16,6 +16,7 @@
 #include "../bonuses/Limiters.h"
 #include "../bonuses/Propagators.h"
 #include "../bonuses/Updaters.h"
+#include "../bonuses/BonusParameters.h"
 #include "../campaign/CampaignState.h"
 #include "../entities/artifact/CArtifact.h"
 #include "../gameState/CGameState.h"
@@ -110,7 +111,7 @@ void registerTypes(Serializer &s)
 	s.template registerType<AllOfLimiter>(61);
 	s.template registerType<CCreatureTypeLimiter>(62);
 	s.template registerType<HasAnotherBonusLimiter>(63);
-	s.template registerType<CreatureTerrainLimiter>(64);
+	s.template registerType<TerrainLimiter>(64);
 	s.template registerType<FactionLimiter>(65);
 	s.template registerType<CreatureLevelLimiter>(66);
 	s.template registerType<CreatureAlignmentLimiter>(67);
@@ -291,6 +292,19 @@ void registerTypes(Serializer &s)
 	s.template registerType<TimesStackSizeUpdater>(249);
 	s.template registerType<TimesArmySizeUpdater>(250);
 	s.template registerType<PackageReceived>(251);
+	s.template registerType<ChangeTownName>(252);
+	s.template registerType<SetTownName>(253);
+	s.template registerType<LobbySetBattleOnlyModeStartInfo>(254);
+	s.template registerType<BattleEnded>(255);
+	s.template registerType<RequestStatistic>(256);
+	s.template registerType<ResponseStatistic>(257);
+	s.template registerType<LobbyQuickLoadGame>(258);
+	s.template registerType<UnitAdjacentLimiter>(259);
+	s.template registerType<AdvInterfaceReady>(260);
+	s.template registerType<SetTactics>(261);
+	s.template registerType<ChangeTactics>(262);
+	s.template registerType<CompositeUpdater>(263);
+	s.template registerType<BonusParameters>(264);
 }
 
 VCMI_LIB_NAMESPACE_END

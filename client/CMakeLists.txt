@@ -52,6 +52,7 @@ set(vcmiclientcommon_SRCS
 	gui/ShortcutHandler.cpp
 	gui/WindowHandler.cpp
 
+	lobby/BattleOnlyModeTab.cpp
 	lobby/CBonusSelection.cpp
 	lobby/CCampaignInfoScreen.cpp
 	lobby/CLobbyScreen.cpp
@@ -102,6 +103,9 @@ set(vcmiclientcommon_SRCS
 	render/Graphics.cpp
 	render/IFont.cpp
 	render/ImageLocator.cpp
+	render/hdEdition/HdImageLoader.cpp
+	render/hdEdition/PakLoader.cpp
+	render/hdEdition/DdsFormat.cpp
 
 	renderSDL/CBitmapFont.cpp
 	renderSDL/CTrueTypeFont.cpp
@@ -202,6 +206,7 @@ set(vcmiclientcommon_SRCS
 	NetPacksLobbyClient.cpp
 	ServerRunner.cpp
 	UIHelper.cpp
+	Discord.cpp
 )
 
 set(vcmiclientcommon_HEADERS
@@ -262,6 +267,7 @@ set(vcmiclientcommon_HEADERS
 	gui/TextAlignment.h
 	gui/WindowHandler.h
 
+	lobby/BattleOnlyModeTab.h
 	lobby/CBonusSelection.h
 	lobby/CCampaignInfoScreen.h
 	lobby/CLobbyScreen.h
@@ -327,6 +333,9 @@ set(vcmiclientcommon_HEADERS
 	render/ImageLocator.h
 	render/IRenderHandler.h
 	render/IScreenHandler.h
+	render/hdEdition/HdImageLoader.h
+	render/hdEdition/PakLoader.h
+	render/hdEdition/DdsFormat.h
 
 	renderSDL/CBitmapFont.h
 	renderSDL/CTrueTypeFont.h
@@ -435,6 +444,7 @@ set(vcmiclientcommon_HEADERS
 	ServerRunner.h
 	resource.h
 	UIHelper.h
+	Discord.h
 )
 
 if(IOS)
@@ -450,14 +460,22 @@ assign_source_group(${vcmiclientcommon_SRCS} ${vcmiclientcommon_HEADERS})
 add_library(vcmiclientcommon STATIC ${vcmiclientcommon_SRCS} ${vcmiclientcommon_HEADERS})
 
 if(NOT ENABLE_STATIC_LIBS)
-	add_dependencies(vcmiclientcommon
-		BattleAI
-		EmptyAI
-		StupidAI
-		VCAI
-	)
-	if(ENABLE_NULLKILLER_AI)
-		add_dependencies(vcmiclientcommon Nullkiller)
+	add_dependencies(vcmiclientcommon EmptyAI)
+
+	if(ENABLE_NULLKILLER2_AI)
+		add_dependencies(vcmiclientcommon Nullkiller2)
+	endif()
+
+	if(ENABLE_STUPID_AI)
+		add_dependencies(vcmiclientcommon StupidAI)
+	endif()
+
+	if(ENABLE_BATTLE_AI)
+		add_dependencies(vcmiclientcommon BattleAI)
+	endif()
+
+	if(ENABLE_MMAI)
+		add_dependencies(vcmiclientcommon MMAI)
 	endif()
 endif()
 if(IOS)
@@ -498,7 +516,7 @@ endif()
 target_link_libraries(vcmiclientcommon PRIVATE vcmiservercommon)
 
 target_link_libraries(vcmiclientcommon PUBLIC
-		vcmi SDL2::SDL2 SDL2::Image SDL2::Mixer SDL2::TTF
+		vcmi SDL2::SDL2 SDL2::Image SDL2::Mixer SDL2::TTF libsquish::libsquish
 )
 
 if(ENABLE_VIDEO)
@@ -520,6 +538,19 @@ endif()
 
 if(VCMI_PORTMASTER)
 	target_compile_definitions(vcmiclientcommon PRIVATE VCMI_PORTMASTER)
+endif()
+
+if (ENABLE_DISCORD)
+	if(USING_CONAN)
+		# don't search for libs in system locations
+		set(findOptions NO_CMAKE_SYSTEM_PATH NO_SYSTEM_ENVIRONMENT_PATH)
+	endif()
+	find_package(fmt ${findOptions})
+	find_package(glaze ${findOptions})
+
+	add_subdirectory(lib/discord-presence)
+	target_link_libraries(vcmiclientcommon PRIVATE discord-rpc)
+	target_compile_definitions(vcmiclientcommon PRIVATE ENABLE_DISCORD)
 endif()
 
 vcmi_set_output_dir(vcmiclientcommon "")

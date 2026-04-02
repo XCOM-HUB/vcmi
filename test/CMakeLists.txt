@@ -36,11 +36,14 @@ set(test_SRCS
 		events/EventBusTest.cpp
 
 		game/CGameStateTest.cpp
+		game/HeroRecruitmentTest.cpp
+
+		json/JsonTests.cpp
 
 		map/CMapEditManagerTest.cpp
 		map/CMapFormatTest.cpp
+		map/CGArtifactRegressionTest.cpp
 		map/MapComparer.cpp
-
 
 		netpacks/NetPackFixture.cpp
 
@@ -72,7 +75,7 @@ set(test_SRCS
 		spells/targetConditions/ResistanceConditionTest.cpp
  		spells/targetConditions/SpellEffectConditionTest.cpp
  		spells/targetConditions/TargetConditionItemFixture.cpp
-		
+
 		mock/BattleFake.cpp
 		mock/mock_IGameEventCallback.cpp
  		mock/mock_MapService.cpp
@@ -116,8 +119,8 @@ if(ENABLE_LUA)
 	)
 endif()
 
-if(ENABLE_ERM) 
-	list(APPEND test_SRCS 
+if(ENABLE_ERM)
+	list(APPEND test_SRCS
 		erm/ERM_BM.cpp
 		erm/ERM_BU.cpp
 		erm/ERM_FU.cpp
@@ -138,6 +141,17 @@ if(ENABLE_ERM)
 	list(APPEND test_HEADERS
 		erm/interpretter/ErmRunner.h
 	)
+endif()
+
+if(ENABLE_BATTLE_AI)
+	file(GLOB_RECURSE BATTLE_AI_TEST_SRCS "../AI/BattleAI/*.cpp")
+	list(FILTER BATTLE_AI_TEST_SRCS EXCLUDE REGEX ".*main\\.cpp$")
+
+	list(APPEND test_SRCS
+		${BATTLE_AI_TEST_SRCS}
+		battleAI/SpellTargetsEvaluatorTest.cpp
+	)
+
 endif()
 
 assign_source_group(${test_SRCS} ${test_HEADERS})
@@ -181,6 +195,9 @@ add_executable(vcmitest ${test_SRCS} ${test_HEADERS} ${mock_HEADERS})
 target_link_libraries(vcmitest PRIVATE gtest gmock vcmi ${SYSTEM_LIBS})
 if(ENABLE_LUA)
 	target_link_libraries(vcmitest PRIVATE vcmiLua)
+endif()
+if(ENABLE_NULLKILLER2_AI)
+	target_link_libraries(vcmitest PUBLIC Nullkiller2)
 endif()
 
 target_include_directories(vcmitest

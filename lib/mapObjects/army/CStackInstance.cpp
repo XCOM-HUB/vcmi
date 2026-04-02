@@ -193,7 +193,7 @@ void CStackInstance::setArmy(CArmedInstance * ArmyObj)
 
 	if(ArmyObj)
 	{
-		attachTo(const_cast<CArmedInstance &>(*ArmyObj));
+		attachTo(*ArmyObj);
 		armyInstance = ArmyObj;
 	}
 }
@@ -259,8 +259,10 @@ TerrainId CStackInstance::getNativeTerrain() const
 
 TerrainId CStackInstance::getCurrentTerrain() const
 {
-	assert(getArmy() != nullptr);
-	return getArmy()->getCurrentTerrain();
+	if (armyInstance)
+		return armyInstance->getCurrentTerrain();
+	else
+		return TerrainId::NONE;		//for example a stackInstance created in order to display unit's statistics on a town screen
 }
 
 CreatureID CStackInstance::getCreatureID() const

@@ -138,6 +138,21 @@ BattleSpellMechanics::BattleSpellMechanics(const IBattleCast * event,
 	targetCondition(std::move(targetCondition_))
 {}
 
+void BattleSpellMechanics::forEachEffect(const std::function<bool (const spells::effects::Effect &)> & fn) const
+{
+	if (!effects)
+		return;
+
+	effects->forEachEffect(getEffectLevel(), [&](const spells::effects::Effect * eff, bool & stop)
+	{
+		if(!eff)
+			return;
+
+		if(fn(*eff))
+			stop = true;
+	});
+}
+
 BattleSpellMechanics::~BattleSpellMechanics() = default;
 
 void BattleSpellMechanics::applyEffects(ServerCallback * server, const Target & targets, bool indirect, bool ignoreImmunity) const
@@ -249,6 +264,12 @@ bool BattleSpellMechanics::canCastAtTarget(const battle::Unit * target) const
 	return true;
 }
 
+bool BattleSpellMechanics::canBeCastAt(const Target & target) const
+{
+	spells::detail::ProblemImpl ignore;
+	return canBeCastAt(target, ignore);
+}
+
 bool BattleSpellMechanics::canBeCastAt(const Target & target, Problem & problem) const
 {
 	if(!canBeCast(problem))
@@ -280,7 +301,7 @@ bool BattleSpellMechanics::canBeCastAt(const Target & target, Problem & problem)
 	}
 	else if(getSpell()->canCastOnlyOnSelf())
 	{
-		if(mainTarget && mainTarget != caster)
+		if(!mainTarget || mainTarget != caster)
 			return false; // can't cast on others
 	}
 
@@ -430,16 +451,21 @@ void BattleSpellMechanics::beforeCast(BattleSpellCast & sc, vstd::RNG & rng, con
 
 	std::vector <const battle::Unit *> resisted;
 
-	auto filterResisted = [&, this](const battle::Unit * unit) -> bool
+	resistantUnitIds.clear();
+	if(isNegativeSpell() && isMagicalEffect())
 	{
-		if(isNegativeSpell() && isMagicalEffect())
+		//magic resistance
+		for (const auto * unit : battle()->battleGetAllUnits(false))
 		{
-			//magic resistance
 			const int prob = std::min(unit->magicResistance(), 100); //probability of resistance in %
 			if(rng.nextInt(0, 99) < prob)
-				return true;
+				resistantUnitIds.insert(unit->unitId());
 		}
-		return false;
+	}
+
+	auto filterResisted = [&, this](const battle::Unit * unit) -> bool
+	{
+		return resistantUnitIds.contains(unit->unitId());
 	};
 
 	auto filterUnit = [&](const battle::Unit * unit)
@@ -481,6 +507,8 @@ void BattleSpellMechanics::beforeCast(BattleSpellCast & sc, vstd::RNG & rng, con
 
 	for(const auto * unit : resisted)
 		sc.resistedCres.insert(unit->unitId());
+
+	resistantUnitIds.clear();
 }
 
 bool BattleSpellMechanics::isReflected(const battle::Unit * unit, vstd::RNG & rng)
@@ -655,89 +683,6 @@ std::vector<AimType> BattleSpellMechanics::getTargetTypes() const
 	return ret;
 }
 
-std::vector<Destination> BattleSpellMechanics::getPossibleDestinations(size_t index, AimType aimType, const Target & current, bool fast) const
-{
-	//TODO: BattleSpellMechanics::getPossibleDestinations
-
-	if(index != 0)
-		return std::vector<Destination>();
-
-	std::vector<Destination> ret;
-
-	switch(aimType)
-	{
-	case AimType::CREATURE:
-	{
-		auto stacks = battle()->battleGetAllStacks();
-
-		for(auto stack : stacks)
-		{
-			Target tmp = current;
-			tmp.emplace_back(stack->getPosition());
-
-			detail::ProblemImpl ignored;
-
-			if(canBeCastAt(tmp, ignored))
-				ret.emplace_back(stack->getPosition());
-		}
-
-		break;
-	}
-
-	case AimType::LOCATION:
-		if(fast)
-		{
-			auto stacks = battle()->battleGetAllStacks();
-			BattleHexArray hexesToCheck;
-
-			for(auto stack : stacks)
-			{
-				hexesToCheck.insert(stack->getPosition());
-				hexesToCheck.insert(stack->getPosition().getNeighbouringTiles());
-			}
-
-			for(const auto & hex : hexesToCheck)
-			{
-				if(hex.isAvailable())
-				{
-					Target tmp = current;
-					tmp.emplace_back(hex);
-
-					detail::ProblemImpl ignored;
-
-					if(canBeCastAt(tmp, ignored))
-						ret.emplace_back(hex);
-				}
-			}
-		}
-		else
-		{
-			for(int i = 0; i < GameConstants::BFIELD_SIZE; i++)
-			{
-				BattleHex dest(i);
-				if(dest.isAvailable())
-				{
-					Target tmp = current;
-					tmp.emplace_back(dest);
-
-					detail::ProblemImpl ignored;
-
-					if(canBeCastAt(tmp, ignored))
-						ret.emplace_back(dest);
-				}
-			}
-		}
-		break;
-	case AimType::NO_TARGET:
-		ret.emplace_back();
-		break;
-	default:
-		break;
-	}
-
-	return ret;
-}
-
 bool BattleSpellMechanics::isReceptive(const battle::Unit * target) const
 {
 	return targetCondition->isReceptive(this, target);
@@ -746,6 +691,11 @@ bool BattleSpellMechanics::isReceptive(const battle::Unit * target) const
 bool BattleSpellMechanics::isSmart() const
 {
 	return mode != Mode::MAGIC_MIRROR && BaseMechanics::isSmart();
+}
+
+bool BattleSpellMechanics::wouldResist(const battle::Unit * unit) const
+{
+	return resistantUnitIds.contains(unit->unitId());
 }
 
 BattleHexArray BattleSpellMechanics::rangeInHexes(const BattleHex & centralHex) const
@@ -769,6 +719,11 @@ BattleHexArray BattleSpellMechanics::rangeInHexes(const BattleHex & centralHex) 
 	});
 
 	return effectRange;
+}
+
+Target BattleSpellMechanics::canonicalizeTarget(const Target & aim) const
+{
+	return transformSpellTarget(aim);
 }
 
 const Spell * BattleSpellMechanics::getSpell() const

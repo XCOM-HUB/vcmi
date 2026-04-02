@@ -10,8 +10,8 @@
 #include "StdInc.h"
 #include "PackRollbackGeneratorVisitor.h"
 
-#include "../lib/gameState/CGameState.h"
-#include "../lib/mapObjects/CGHeroInstance.h"
+#include "../../lib/gameState/CGameState.h"
+#include "../../lib/mapObjects/CGHeroInstance.h"
 
 void PackRollbackGeneratorVisitor::visitPackageReceived(PackageReceived & pack)
 {
@@ -52,9 +52,11 @@ void PackRollbackGeneratorVisitor::visitRebalanceStacks(RebalanceStacks & pack)
 	const auto * srcArmy = dynamic_cast<const CArmedInstance *>(srcObject);
 	const auto * dstArmy = dynamic_cast<const CArmedInstance *>(dstObject);
 
+	const auto * artifact = srcArmy->getStack(pack.srcSlot).getSlot(ArtifactPosition::CREATURE_SLOT);
+
 	if (srcArmy->getStack(pack.srcSlot).getTotalExperience() != 0 ||
-	   dstArmy->getStack(pack.srcSlot).getTotalExperience() != 0 ||
-	   srcArmy->getStack(pack.srcSlot).getSlot(ArtifactPosition::CREATURE_SLOT)->artifactID.hasValue())
+	   (dstArmy->hasStackAtSlot(pack.dstSlot) && dstArmy->getStack(pack.dstSlot).getTotalExperience() != 0) ||
+	   (artifact && artifact->artifactID.hasValue()))
 	{
 		// TODO: rollback creature artifacts & stack experience
 		return;

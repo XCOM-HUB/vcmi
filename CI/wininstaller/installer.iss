@@ -88,7 +88,7 @@
 
 #define AppComment "VCMI is an open-source engine for Heroes III, offering new and extended possibilities."
 #define VCMITeam "VCMI Team"
-#define VCMICopyright "Copyright © VCMI Community. All rights reserved."
+#define VCMICopyright "Copyright © VCMI Team. All rights reserved."
 
 #define VCMIHome "https://vcmi.eu/"
 #define VCMIContact "https://discord.gg/chBT42V"
@@ -166,12 +166,12 @@ Source: "{#UCRTFilesPath}\{#InstallerArch}\*"; DestDir: "{app}"; Flags: ignoreve
 
 
 [Icons]
-Name: "{group}\{cm:ShortcutLauncher}"; Filename: "{app}\VCMI_launcher.exe"; Comment: "{cm:ShortcutLauncherComment}";  Tasks: startmenu
-Name: "{group}\{cm:ShortcutMapEditor}"; Filename: "{app}\VCMI_mapeditor.exe"; Comment: "{cm:ShortcutMapEditorComment}";  Tasks: startmenu
+Name: "{group}\{cm:ShortcutLauncher}{code:GetBranchSuffix}"; Filename: "{app}\VCMI_launcher.exe"; Comment: "{cm:ShortcutLauncherComment}{code:GetBranchSuffix}";  Tasks: startmenu
+Name: "{group}\{cm:ShortcutMapEditor}{code:GetBranchSuffix}"; Filename: "{app}\VCMI_mapeditor.exe"; Comment: "{cm:ShortcutMapEditorComment}{code:GetBranchSuffix}";  Tasks: startmenu
 Name: "{group}\{cm:ShortcutWebPage}"; Filename: "{#VCMIHome}"; Comment: "{cm:ShortcutWebPageComment}";  Tasks: startmenu
 Name: "{group}\{cm:ShortcutDiscord}"; Filename: "{#VCMIContact}"; Comment: "{cm:ShortcutDiscordComment}";  Tasks: startmenu
 
-Name: "{code:GetUserDesktopFolder}\{cm:ShortcutLauncher}"; Filename: "{app}\VCMI_launcher.exe"; Comment: "{cm:ShortcutLauncherComment}"; Tasks: desktop
+Name: "{code:GetUserDesktopFolder}\{cm:ShortcutLauncher}{code:GetBranchSuffix}"; Filename: "{app}\VCMI_launcher.exe"; Comment: "{cm:ShortcutLauncherComment}{code:GetBranchSuffix}"; Tasks: desktop
 
 
 [Tasks]
@@ -368,6 +368,22 @@ begin
     WTSFreeMemory(Buffer);
   end;
 
+end;
+
+
+function GetBranchSuffix(Param: string): string;
+var
+  Branch: string;
+begin
+  Branch := UpperCase(ExpandConstant('{#VCMIFolder}'));
+
+  if Pos('(BRANCH BETA)', Branch) > 0 then
+    Result := ' (Beta)'
+  else
+  if Pos('(BRANCH DEVELOP)', Branch) > 0 then
+    Result := ' (Develop)'
+  else
+    Result := '';
 end;
 
 
@@ -697,21 +713,46 @@ begin
   Result := True;
 end;
 
+function TryReadUninstallExeFromHKLM(const SubKey: String; var UninstallerPath: String): Boolean;
+begin
+  Result := RegQueryStringValue(HKLM, SubKey, 'UninstallString', UninstallerPath);
+  if (not Result) or (Trim(UninstallerPath) = '') then
+  begin
+    UninstallerPath := '';
+    Result := False;
+  end;
+
+  UninstallerPath := RemoveQuotes(Trim(UninstallerPath));
+end;
+
+function GetLegacyUninstallerPath(var UninstallerPath: String): Boolean;
+begin
+  Result := TryReadUninstallExeFromHKLM('SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VCMI', UninstallerPath) or TryReadUninstallExeFromHKLM('SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\VCMI', UninstallerPath);
+end;
+
 
 procedure RemoveLegacyInstaller();
 var
   AppFolder: String;
+  UninstallerPath: String;
   ResultCode: Integer;
 begin
   AppFolder := ExpandConstant('{app}');
+  UninstallerPath := '';
 
-  // Silently remove old NSIS installation
-  if FileExists(AppFolder + '\Uninstall.exe') then
+  // 1) Prefer uninstall path from registry (full path)
+  if not GetLegacyUninstallerPath(UninstallerPath) then
   begin
-    Exec(AppFolder + '\Uninstall.exe', '/S', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    // 2) Fallback: uninstall.exe in current target dir
+    UninstallerPath := AppFolder + '\Uninstall.exe';
+  end;
 
-    // Attempt to remove leftovers from target folder to ensure clean install
-    if DirExists(AppFolder) then
+  if (UninstallerPath <> '') and FileExists(UninstallerPath) then
+  begin
+    Exec(UninstallerPath, '/S', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+
+    // Clean leftovers only if uninstall.exe is in current {app} folder
+    if DirExists(AppFolder) and (CompareText(ExtractFileDir(UninstallerPath), AppFolder) = 0) then
       DelTree(AppFolder, True, True, False);
   end;
 end;

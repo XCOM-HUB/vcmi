@@ -16,11 +16,13 @@
 #include "../lib/GameLibrary.h"
 #include "../lib/mapping/CMapEditManager.h"
 #include "../lib/mapping/MapFormat.h"
+#include "../lib/modding/ModScope.h"
 #include "../lib/texts/CGeneralTextHandler.h"
 #include "../lib/CRandomGenerator.h"
 #include "../lib/serializer/JsonSerializer.h"
 #include "../lib/serializer/JsonDeserializer.h"
 
+#include "../vcmiqt/launcherdirs.h"
 #include "../vcmiqt/jsonutils.h"
 #include "windownewmap.h"
 #include "ui_windownewmap.h"
@@ -91,9 +93,9 @@ WindowNewMap::~WindowNewMap()
 bool WindowNewMap::loadUserSettings()
 {
 	bool ret = false;
-	CRmgTemplate * templ = nullptr;
+	const CRmgTemplate * templ = nullptr;
 
-	QSettings s(Ui::teamName, Ui::appName);
+	QSettings s = CLauncherDirs::getSettings(Ui::appName);
 
 	auto generateRandom = s.value(newMapGenerateRandom);
 	if (generateRandom.isValid())
@@ -106,9 +108,10 @@ bool WindowNewMap::loadUserSettings()
 	if (settings.isValid())
 	{
 		auto node = JsonUtils::toJson(settings);
+		node.setModScope(ModScope::scopeMap());
 		JsonDeserializer handler(nullptr, node);
 		handler.serializeStruct("lastSettings", mapGenOptions);
-		templ = const_cast<CRmgTemplate*>(mapGenOptions.getMapTemplate()); // Remember for later
+		templ = mapGenOptions.getMapTemplate(); // Remember for later
 
 		ui->widthTxt->setValue(mapGenOptions.getWidth());
 		ui->heightTxt->setValue(mapGenOptions.getHeight());
@@ -182,12 +185,13 @@ bool WindowNewMap::loadUserSettings()
 
 void WindowNewMap::saveUserSettings()
 {
-	QSettings s(Ui::teamName, Ui::appName);
+	QSettings s = CLauncherDirs::getSettings(Ui::appName);
 
 	JsonNode data;
 	JsonSerializer ser(nullptr, data);
 
 	ser.serializeStruct("lastSettings", mapGenOptions);
+	data.setModScope(ModScope::scopeMap());
 
 	auto variant = JsonUtils::toVariant(data);
 	s.setValue(newMapWindow, variant);
@@ -212,7 +216,16 @@ std::unique_ptr<CMap> generateEmptyMap(CMapGenOptions & options)
 	map->creationDateTime = std::time(nullptr);
 	map->width = options.getWidth();
 	map->height = options.getHeight();
-	map->mapLevels = options.getLevels();
+	map->mapLayers.clear();
+	for(int i = 0; i < options.getLevels(); i++)
+	{
+		if(i == 0)
+			map->mapLayers.push_back(MapLayerId::SURFACE);
+		else if(i == 1)
+			map->mapLayers.push_back(MapLayerId::UNDERGROUND);
+		else
+			map->mapLayers.push_back(MapLayerId::UNKNOWN);
+	}
 	
 	map->initTerrain();
 	map->getEditManager()->clearTerrain(&CRandomGenerator::getDefault());

@@ -87,6 +87,8 @@ public:
 	void visitSetCommanderProperty(SetCommanderProperty & pack) override;
 	void visitAddQuest(AddQuest & pack) override;
 	void visitChangeFormation(ChangeFormation & pack) override;
+	void visitChangeTactics(ChangeTactics & pack) override;
+	void visitChangeTownName(ChangeTownName & pack) override;
 	void visitChangeSpells(ChangeSpells & pack) override;
 	void visitSetAvailableHero(SetAvailableHero & pack) override;
 	void visitChangeObjectVisitors(ChangeObjectVisitors & pack) override;
@@ -101,6 +103,7 @@ public:
 	void visitBattleNextRound(BattleNextRound & pack) override;
 	void visitBattleCancelled(BattleCancelled & pack) override;
 	void visitBattleResultsApplied(BattleResultsApplied & pack) override;
+	void visitBattleEnded(BattleEnded & pack) override;
 	void visitBattleResultAccepted(BattleResultAccepted & pack) override;
 	void visitTurnTimeUpdate(TurnTimeUpdate & pack) override;
 };

@@ -46,6 +46,7 @@ class DLL_LINKAGE CGTownInstance : public CGDwelling, public IShipyard, public I
 {
 	friend class CTownInstanceConstructor;
 	std::string nameTextId; // name of town
+	std::string customName;
 
 	std::map<BuildingID, TownRewardableBuildingInstance*> convertOldBuildings(std::vector<TownRewardableBuildingInstance*> oldVector);
 	std::set<BuildingID> builtBuildings;
@@ -56,8 +57,8 @@ public:
 	enum EFortLevel {NONE = 0, FORT = 1, CITADEL = 2, CASTLE = 3};
 
 	CBonusSystemNode townAndVis;
-	si32 built; //how many buildings has been built this turn
-	si32 destroyed; //how many buildings has been destroyed this turn
+	si32 built; //how many buildings have been built this turn
+	si32 destroyed; //how many buildings have been destroyed this turn
 	ui32 identifier; //special identifier from h3m (only > RoE maps)
 	PlayerColor alignmentToPlayer; // if set to non-neutral, random town will have same faction as specified player
 	std::set<BuildingID> forbiddenBuildings;
@@ -66,8 +67,9 @@ public:
 	std::vector<std::vector<SpellID> > spells; //spells[level] -> vector of spells, first will be available in guild
 	std::vector<CCastleEvent> events;
 	std::pair<si32, si32> bonusValue;//var to store town bonuses (rampart = resources from mystic pond, factory = save debts);
-	int spellResearchCounterDay;
-	int spellResearchAcceptedCounter;
+	int spellResearchCounterDay; //TODO: change to si32 when breaking save compatibility
+	int spellResearchAcceptedCounter; //TODO: change to si32 when breaking save compatibility
+	std::vector<si32> spellResearchPendingRerollsCounters;
 	bool spellResearchAllowed;
 
 	//////////////////////////////////////////////////////////////////////////
@@ -75,6 +77,8 @@ public:
 	{
 		h & static_cast<CGDwelling&>(*this);
 		h & nameTextId;
+		if (h.version >= Handler::Version::CUSTOM_NAMES)
+			h & customName;
 		h & built;
 		h & destroyed;
 		h & identifier;
@@ -109,6 +113,9 @@ public:
 		h & rewardableBuildings;
 		h & townAndVis;
 
+		if(h.hasFeature(Handler::Version::SPELL_RESEARCH_IMPROVEMENTS))
+			h & spellResearchPendingRerollsCounters;
+
 		if(!h.saving)
 			postDeserialize();
 	}
@@ -128,6 +135,7 @@ public:
 	std::string getNameTranslated() const;
 	std::string getNameTextID() const;
 	void setNameTextId(const std::string & newName);
+	void setCustomName(const std::string & newName);
 
 	//////////////////////////////////////////////////////////////////////////
 
@@ -156,12 +164,11 @@ public:
 	GrowthInfo getGrowthInfo(int level) const;
 	bool hasFort() const;
 	bool hasCapitol() const;
-	bool hasBuiltSomeTradeBuilding() const;
+	bool hasBuiltResourceMarketplace() const;
 	//checks if special building with type buildingID is constructed
 	bool hasBuilt(BuildingSubID::EBuildingSubID buildingID) const;
 	//checks if building is constructed and town has same subID
 	bool hasBuilt(const BuildingID & buildingID) const;
-	bool hasBuilt(const BuildingID & buildingID, FactionID townID) const;
 	void addBuilding(const BuildingID & buildingID);
 	void removeBuilding(const BuildingID & buildingID);
 	void removeAllBuildings();

@@ -14,8 +14,8 @@
 #include "../../GameEngine.h"
 #include "../../GameInstance.h"
 #include "../../gui/Shortcut.h"
-#include "../../widgets/Buttons.h"
-#include "../../widgets/TextControls.h"
+#include "../Buttons.h"
+#include "../TextControls.h"
 
 #include "../../CPlayerInterface.h"
 
@@ -98,8 +98,10 @@ void CMarketResources::highlightingChanged()
 void CMarketResources::updateSubtitles()
 {
 	CMarketBase::updateSubtitlesForBid(EMarketMode::RESOURCE_RESOURCE, bidTradePanel->getHighlightedItemId());
-	if(bidTradePanel->highlightedSlot)
-		offerTradePanel->slots[bidTradePanel->highlightedSlot->serial]->subtitle->setText(LIBRARY->generaltexth->allTexts[164]); // n/a
+	if(bidTradePanel && bidTradePanel->highlightedSlot)
+		for(auto & slot : offerTradePanel->slots)
+			if(slot->id == bidTradePanel->highlightedSlot->id)
+				slot->subtitle->setText(LIBRARY->generaltexth->allTexts[164]); // n/a
 }
 
 std::string CMarketResources::getTraderText()

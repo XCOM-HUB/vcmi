@@ -35,6 +35,10 @@ class IAdventureSpellEffect;
 namespace spells
 {
 class Service;
+	namespace effects
+	{
+		class Effect;
+	}
 }
 
 namespace vstd
@@ -140,8 +144,6 @@ public:
 	///cast with silent check for permitted cast
 	bool castIfPossible(ServerCallback * server, Target target);
 
-	std::vector<Target> findPotentialTargets(bool fast = false) const;
-
 private:
 	///spell school level
 	OptionalValue magicSkillLevel;
@@ -180,6 +182,25 @@ class DLL_LINKAGE Mechanics
 public:
 	virtual ~Mechanics();
 
+	virtual void forEachEffect(const std::function<bool(const effects::Effect &)> & fn) const
+	{ }
+
+	template<class T>
+	const T * findEffect() const
+	{
+		const T * found = nullptr;
+		forEachEffect([&found](const effects::Effect & e)
+		{
+			if(auto p = dynamic_cast<const T *>(&e))
+			{
+				found = p;
+				return true;
+			}
+			return false;
+		});
+		return found;
+	}
+
 	virtual bool adaptProblem(ESpellCastProblem source, Problem & target) const = 0;
 	virtual bool adaptGenericProblem(Problem & target) const = 0;
 
@@ -187,6 +208,7 @@ public:
 	virtual std::vector<const CStack *> getAffectedStacks(const Target & target) const = 0;
 
 	virtual bool canBeCast(Problem & problem) const = 0;
+	virtual bool canBeCastAt(const Target & target) const = 0;
 	virtual bool canBeCastAt(const Target & target, Problem & problem) const = 0;
 
 	virtual void applyEffects(ServerCallback * server, const Target & targets, bool indirect, bool ignoreImmunity) const = 0;
@@ -196,10 +218,9 @@ public:
 	virtual void castEval(ServerCallback * server, const Target & target) = 0;
 
 	virtual bool isReceptive(const battle::Unit * target) const = 0;
+	virtual bool wouldResist(const battle::Unit * target) const = 0;
 
 	virtual std::vector<AimType> getTargetTypes() const = 0;
-
-	virtual std::vector<Destination> getPossibleDestinations(size_t index, AimType aimType, const Target & current, bool fast = false) const = 0;
 
 	virtual const Spell * getSpell() const = 0;
 
@@ -228,12 +249,14 @@ public:
 
 	virtual bool isNegativeSpell() const = 0;
 	virtual bool isPositiveSpell() const = 0;
+	virtual bool isNeutralSpell() const = 0;
 	virtual bool isMagicalEffect() const = 0;
 
 	virtual int64_t adjustEffectValue(const battle::Unit * target) const = 0;
 	virtual int64_t applySpellBonus(int64_t value, const battle::Unit * target) const = 0;
 	virtual int64_t applySpecificSpellBonus(int64_t value) const = 0;
 	virtual int64_t calculateRawEffectValue(int32_t basePowerMultiplier, int32_t levelPowerMultiplier) const = 0;
+	virtual Target canonicalizeTarget(const Target & aim) const = 0;
 
 	//Battle facade
 	virtual bool ownerMatches(const battle::Unit * unit) const = 0;
@@ -286,12 +309,14 @@ public:
 
 	bool isNegativeSpell() const override;
 	bool isPositiveSpell() const override;
+	bool isNeutralSpell() const override;
 	bool isMagicalEffect() const override;
 
 	int64_t adjustEffectValue(const battle::Unit * target) const override;
 	int64_t applySpellBonus(int64_t value, const battle::Unit * target) const override;
 	int64_t applySpecificSpellBonus(int64_t value) const override;
 	int64_t calculateRawEffectValue(int32_t basePowerMultiplier, int32_t levelPowerMultiplier) const override;
+	Target canonicalizeTarget(const Target & aim) const override;
 
 	bool ownerMatches(const battle::Unit * unit) const override;
 	bool ownerMatches(const battle::Unit * unit, const boost::logic::tribool positivness) const override;

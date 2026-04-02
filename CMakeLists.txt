@@ -5,17 +5,12 @@ cmake_minimum_required(VERSION 3.16.0)
 
 project(VCMI)
 # TODO
-# Vckpg:
-# - Improve install code once there is better way to deploy DLLs and Qt plugins
-#
-# Other:
 # - Cleanup remove_directory copy_directory if performance will be a problem.
 # We can use some macro over copy_if_different since it's only work for single file.
 # - Find a way to move add_custom_command for assets deploy out of "lib/CMakeLists.txt"
 # - Consider to remove M_DATA_DIR, DM_BIN_DIR, DM_LIB_DIR and not use them in code as well
 # - Try to get rid of FOLDER override with define_property
 # It's used currently to make sure that 3rd-party dependencies in git submodules get proper FOLDER property
-# - Make FindFuzzyLite check for the right version and disable FORCE_BUNDLED_FL by default
 
 if(APPLE AND NOT IOS)
 	set(MACOS 1)
@@ -23,6 +18,9 @@ endif()
 
 if(POLICY CMP0142)
   cmake_policy(SET CMP0142 NEW)
+endif()
+if(POLICY CMP0167)
+  cmake_policy(SET CMP0167 NEW)
 endif()
 if(POLICY CMP0177)
   cmake_policy(SET CMP0177 NEW)
@@ -46,9 +44,15 @@ option(ENABLE_ERM "Enable compilation of ERM scripting module" OFF)
 option(ENABLE_LUA "Enable compilation of LUA scripting module" OFF)
 option(ENABLE_VIDEO "Enable video support using ffmpeg" ON)
 option(ENABLE_TRANSLATIONS "Enable generation of translations for launcher and editor" ON)
-option(ENABLE_NULLKILLER_AI "Enable compilation of Nullkiller AI library" ON)
 option(ENABLE_MINIMAL_LIB "Build only core parts of vcmi library that are required for game lobby" OFF)
 option(ENABLE_GOLDMASTER "Build in public release mode in which some debug routines are disabled" OFF)
+
+# AI libraries. Empty AI is always on
+
+option(ENABLE_NULLKILLER2_AI "Enable compilation of Nullkiller2AI library" ON)
+option(ENABLE_STUPID_AI "Enable compilation of StupidAI library" ON)
+option(ENABLE_BATTLE_AI "Enable compilation of BattleAI library" ON)
+option(ENABLE_MMAI "Enable compilation of MMAI AI library" ON)
 
 # Compilation options
 
@@ -86,6 +90,7 @@ if(IOS OR ANDROID)
 	set(ENABLE_LOBBY OFF)
 	set(ENABLE_SERVER OFF)
 	set(COPY_CONFIG_ON_BUILD OFF)
+	set(ENABLE_DISCORD OFF)
 else()
 	option(ENABLE_MONOLITHIC_INSTALL "Install everything in single directory on Linux and Mac" OFF) # Used for Snap packages and also useful for debugging
 	option(COPY_CONFIG_ON_BUILD "Copies config folder into output directory at building phase" ON)
@@ -94,6 +99,31 @@ else()
 	option(ENABLE_SINGLE_APP_BUILD "Builds client and launcher as single executable" OFF)
 	option(ENABLE_TEST "Enable compilation of unit tests" OFF)
 	option(ENABLE_LOBBY "Enable compilation of lobby server" OFF)
+
+	include(CheckCXXCompilerFlag)
+	if(MSVC)
+		check_cxx_compiler_flag("/std:c++23" COMPILER_SUPPORTS_CXX23)
+		if(NOT COMPILER_SUPPORTS_CXX23)
+			check_cxx_compiler_flag("/std:c++23preview" COMPILER_SUPPORTS_CXX23_PREVIEW)
+			set(COMPILER_SUPPORTS_CXX23 ${COMPILER_SUPPORTS_CXX23_PREVIEW})
+		endif()
+	else()
+		check_cxx_compiler_flag("-std=c++23" COMPILER_SUPPORTS_CXX23)
+	endif()
+
+	option(ENABLE_DISCORD "Enable compilation of discord integration" ON)
+
+	# Determine if Glaze can be used
+	set(DISCORD_RPC_NO_GLAZE OFF)
+	if(
+		(MACOS AND CMAKE_OSX_DEPLOYMENT_TARGET VERSION_LESS "10.15")
+		OR
+		(IOS AND CMAKE_OSX_DEPLOYMENT_TARGET VERSION_LESS "13.0")
+		OR
+		(NOT COMPILER_SUPPORTS_CXX23)
+	)
+		set(DISCORD_RPC_NO_GLAZE ON)
+	endif()
 endif()
 
 # ERM depends on LUA implicitly
@@ -152,18 +182,35 @@ if(ENABLE_CCACHE)
 endif()
 
 if(ENABLE_CCACHE AND XCODE)
-	# https://stackoverflow.com/a/36515503/2278742
-	# Set up wrapper scripts
-	configure_file(xcode/launch-c.in   xcode/launch-c)
-	configure_file(xcode/launch-cxx.in xcode/launch-cxx)
-	execute_process(COMMAND chmod a+rx
-											"${CMAKE_BINARY_DIR}/xcode/launch-c"
-											"${CMAKE_BINARY_DIR}/xcode/launch-cxx")
-	# Set Xcode project attributes to route compilation through our scripts
-	set(CMAKE_XCODE_ATTRIBUTE_CC         	"${CMAKE_BINARY_DIR}/xcode/launch-c")
-	set(CMAKE_XCODE_ATTRIBUTE_CXX        	"${CMAKE_BINARY_DIR}/xcode/launch-cxx")
-	set(CMAKE_XCODE_ATTRIBUTE_LD         	"${CMAKE_BINARY_DIR}/xcode/launch-c")
-	set(CMAKE_XCODE_ATTRIBUTE_LDPLUSPLUS 	"${CMAKE_BINARY_DIR}/xcode/launch-cxx")
+	set(compilerLauncherPermissions FILE_PERMISSIONS
+		OWNER_READ OWNER_WRITE OWNER_EXECUTE
+		GROUP_READ GROUP_EXECUTE
+		WORLD_READ WORLD_EXECUTE
+	)
+	set(compilerLauncherTemplate "xcode/compiler-launcher.in")
+	set(compilerLauncherC "${CMAKE_BINARY_DIR}/xcode/launch-c")
+	set(compilerLauncherCXX "${CMAKE_BINARY_DIR}/xcode/launch-cxx")
+
+	set(xcodeCompiler "clang")
+	configure_file(${compilerLauncherTemplate} ${compilerLauncherC} ${compilerLauncherPermissions})
+
+	set(xcodeCompiler "clang++")
+	configure_file(${compilerLauncherTemplate} ${compilerLauncherCXX} ${compilerLauncherPermissions})
+
+	if(XCODE_VERSION VERSION_GREATER_EQUAL 26)
+		set(compilerLauncherXcode26 "${CMAKE_BINARY_DIR}/xcode/launch-xc26")
+
+		set(xcodeCompiler)
+		configure_file(${compilerLauncherTemplate} ${compilerLauncherXcode26} ${compilerLauncherPermissions})
+
+		set(CMAKE_XCODE_ATTRIBUTE_C_COMPILER_LAUNCHER   ${compilerLauncherXcode26})
+		set(CMAKE_XCODE_ATTRIBUTE_CXX_COMPILER_LAUNCHER ${compilerLauncherXcode26})
+	else()
+		set(CMAKE_XCODE_ATTRIBUTE_CC  ${compilerLauncherC})
+		set(CMAKE_XCODE_ATTRIBUTE_CXX ${compilerLauncherCXX})
+	endif()
+	set(CMAKE_XCODE_ATTRIBUTE_LD         ${compilerLauncherC})
+	set(CMAKE_XCODE_ATTRIBUTE_LDPLUSPLUS ${compilerLauncherCXX})
 endif()
 
 # Allow to pass package name from Travis CI
@@ -179,7 +226,7 @@ include(VersionDefinition)
 vcmi_print_important_variables()
 
 # Options to enable folders in CMake generated projects for Visual Studio, Xcode, etc
-# Very useful to put 3rd-party libraries such as GoogleTest and FuzzyLite in their own folders
+# Very useful to put 3rd-party libraries such as GoogleTest in their own folders
 set_property(GLOBAL PROPERTY USE_FOLDERS TRUE)
 # Make FOLDER property inheritable
 # So when we set FOLDER property on AI directory all and targets inside will inherit it
@@ -223,8 +270,9 @@ include(UseDoxygen OPTIONAL)
 #        Compile and linking options       #
 ############################################
 
-#Enable C++17 Globally
-set (CMAKE_CXX_STANDARD 17)
+set (CMAKE_CXX_STANDARD 20)
+set (CMAKE_CXX_STANDARD_REQUIRED ON)
+
 #General visibility options
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 set(CMAKE_VISIBILITY_INLINES_HIDDEN 1)
@@ -283,9 +331,22 @@ if(ENABLE_GOLDMASTER)
 	add_definitions(-DENABLE_GOLDMASTER)
 endif()
 
+if(ENABLE_NULLKILLER2_AI)
+	add_definitions(-DENABLE_NULLKILLER2_AI)
+endif()
+if(ENABLE_STUPID_AI)
+	add_definitions(-DENABLE_STUPID_AI)
+endif()
+if(ENABLE_BATTLE_AI)
+	add_definitions(-DENABLE_BATTLE_AI)
+endif()
+if(ENABLE_MMAI)
+	add_definitions(-DENABLE_MMAI)
+endif()
+
+
 if(IOS)
 	set(CMAKE_MACOSX_RPATH 1)
-	set(CMAKE_OSX_DEPLOYMENT_TARGET 12.0)
 
 	if(NOT USING_CONAN)
 		list(APPEND CMAKE_FIND_ROOT_PATH "${CMAKE_PREFIX_PATH}") # required for Boost
@@ -305,12 +366,6 @@ if(MACOS)
 endif()
 
 if(MINGW OR MSVC)
-	# Windows Vista or newer for FuzzyLite 6 to compile
-	# Except for conan which already has this definition in its profile
-	if(NOT USING_CONAN)
-		add_definitions(-D_WIN32_WINNT=0x0600)
-	endif()
-
 	#delete lib prefix for dlls (libvcmi -> vcmi)
 	set(CMAKE_SHARED_LIBRARY_PREFIX "")
 
@@ -394,7 +449,6 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR NOT WIN32)
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-switch")             # large number of false-positives, disabled
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-reorder")            # large number of noise, low chance of any significant issues
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-sign-compare")       # low chance of any significant issues
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-varargs")            # emitted in fuzzylite headers, disabled
 
 	if(ENABLE_STRICT_COMPILATION)
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
@@ -423,18 +477,8 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR NOT WIN32)
 endif()
 
 # Check if some platform-specific libraries are needed for linking
-if(NOT WIN32 AND NOT IOS)
-	include(CheckLibraryExists)
-
-	# Shared memory functions used by Boost.Interprocess
-	# FindBoost handle linking with pthreads, but doesn't handle this
-	CHECK_LIBRARY_EXISTS(rt shm_open "" HAVE_RT_LIB)
-	if(HAVE_RT_LIB)
-		set(SYSTEM_LIBS ${SYSTEM_LIBS} rt)
-	endif()
-	if(HAIKU)
-		set(SYSTEM_LIBS ${SYSTEM_LIBS} network)
-	endif()
+if(HAIKU)
+	set(SYSTEM_LIBS ${SYSTEM_LIBS} network)
 endif()
 
 if(ENABLE_LUA)
@@ -449,10 +493,10 @@ set(BOOST_COMPONENTS date_time filesystem locale program_options)
 if(ENABLE_INNOEXTRACT)
 	list(APPEND BOOST_COMPONENTS iostreams)
 endif()
-find_package(Boost 1.48.0 REQUIRED COMPONENTS ${BOOST_COMPONENTS})
+find_package(Boost 1.74.0 REQUIRED COMPONENTS ${BOOST_COMPONENTS})
 if(Boost_MAJOR_VERSION EQUAL 1 AND Boost_MINOR_VERSION LESS 69)
 	list(APPEND BOOST_COMPONENTS system)
-	find_package(Boost 1.48.0 REQUIRED COMPONENTS ${BOOST_COMPONENTS})
+	find_package(Boost 1.74.0 REQUIRED COMPONENTS ${BOOST_COMPONENTS})
 endif()
 
 find_package(ZLIB REQUIRED)
@@ -494,6 +538,8 @@ if (ENABLE_CLIENT)
 	if(TARGET SDL2_ttf::SDL2_ttf-static)
 		add_library(SDL2::TTF ALIAS SDL2_ttf::SDL2_ttf-static)
 	endif()
+
+	find_package(libsquish REQUIRED)
 endif()
 
 if(ENABLE_LOBBY)
@@ -718,7 +764,7 @@ if(ENABLE_LUA)
 endif()
 
 # that script is useless for Windows / iOS / Android
-if(NOT WIN32 AND NOT IOS AND NOT ANDROID)
+if(NOT WIN32 AND NOT IOS AND NOT ANDROID AND NOT ENABLE_MINIMAL_LIB)
 	install(FILES vcmibuilder DESTINATION ${BIN_DIR} PERMISSIONS
 		OWNER_WRITE OWNER_READ OWNER_EXECUTE
 					GROUP_READ GROUP_EXECUTE

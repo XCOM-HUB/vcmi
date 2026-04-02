@@ -20,6 +20,8 @@
 #include "../texts/MetaString.h"
 #include "../texts/TextLocalizationContainer.h"
 
+#include "MapDifficulty.h"
+
 VCMI_LIB_NAMESPACE_BEGIN
 
 class CGObjectInstance;
@@ -193,15 +195,6 @@ struct DLL_LINKAGE TriggeredEvent
 	}
 };
 
-enum class EMapDifficulty : uint8_t
-{
-	EASY = 0,
-	NORMAL = 1,
-	HARD = 2,
-	EXPERT = 3,
-	IMPOSSIBLE = 4
-};
-
 /// The disposed hero struct describes which hero can be hired from which player.
 struct DLL_LINKAGE DisposedHero
 {
@@ -246,7 +239,7 @@ public:
 
 	si32 height; /// The default value is 72.
 	si32 width; /// The default value is 72.
-	si32 mapLevels; /// The default value is 2.
+	std::vector<MapLayerId> mapLayers;
 	MetaString name;
 	MetaString description;
 	EMapDifficulty difficulty;
@@ -272,6 +265,8 @@ public:
 
 	bool areAnyPlayers; /// Unused. True if there are any playable players on the map.
 
+	bool battleOnly; /// Battle only mode
+
 	/// "main quests" of the map that describe victory and loss conditions
 	std::vector<TriggeredEvent> triggeredEvents;
 	
@@ -295,20 +290,33 @@ public:
 		h & creationDateTime;
 		h & width;
 		h & height;
-		if (h.version >= Handler::Version::MORE_MAP_LAYERS)
-			h & mapLevels;
+		if (h.version >= Handler::Version::NAME_MAP_LAYERS)
+			h & mapLayers;
+		else if (h.version >= Handler::Version::MORE_MAP_LAYERS)
+		{
+			if (!h.saving)
+			{
+				si32 mapLevels;
+				h & mapLevels;
+				mapLayers.clear();
+				for(int i = 0; i < mapLevels; i++)
+				{
+					if(i == 0)
+						mapLayers.push_back(MapLayerId::SURFACE);
+					else if(i == 1)
+						mapLayers.push_back(MapLayerId::UNDERGROUND);
+					else
+						mapLayers.push_back(MapLayerId::UNKNOWN);
+				}
+			}
+		}
 		else
 		{
-			if (h.saving)
-			{
-				bool hasTwoLevels = mapLevels == 2;
-				h & hasTwoLevels;
-			}
-			else
+			if (!h.saving)
 			{
 				bool hasTwoLevels;
 				h & hasTwoLevels;
-				mapLevels = hasTwoLevels ? 2 : 1;
+				mapLayers = hasTwoLevels ? std::vector<MapLayerId>({MapLayerId::SURFACE, MapLayerId::UNDERGROUND}) : std::vector<MapLayerId>({MapLayerId::SURFACE});
 			}
 		}
 
@@ -316,6 +324,8 @@ public:
 
 		h & levelLimit;
 		h & areAnyPlayers;
+		if (h.version >= Handler::Version::BATTLE_ONLY)
+			h & battleOnly;
 		h & players;
 		h & howManyTeams;
 		h & allowedHeroes;

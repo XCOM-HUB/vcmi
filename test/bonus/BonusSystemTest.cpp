@@ -9,11 +9,11 @@
  */
 
 #include "StdInc.h"
-#include "../lib/bonuses/CBonusSystemNode.h"
-#include "../lib/bonuses/BonusEnum.h"
-#include "../lib/bonuses/Limiters.h"
-#include "../lib/bonuses/Propagators.h"
-#include "../lib/bonuses/Updaters.h"
+#include "../../lib/bonuses/CBonusSystemNode.h"
+#include "../../lib/bonuses/BonusEnum.h"
+#include "../../lib/bonuses/Limiters.h"
+#include "../../lib/bonuses/Propagators.h"
+#include "../../lib/bonuses/Updaters.h"
 
 namespace test
 {
@@ -189,6 +189,8 @@ TEST_F(BonusSystemTest, battlewidePropagationToAll)
 
 	EXPECT_TRUE(heroAine.hasBonusOfType(BonusType::BLOCK_ALL_MAGIC));
 	EXPECT_TRUE(heroBron.hasBonusOfType(BonusType::BLOCK_ALL_MAGIC));
+
+	heroAine.detachFromSource(orb);
 }
 
 TEST_F(BonusSystemTest, battlewidePropagationToEnemies)
@@ -273,6 +275,8 @@ TEST_F(BonusSystemTest, battlewideSkillPropagationToEnemies)
 	EXPECT_EQ(heroBron.valOfBonuses(BonusType::MORALE), -1);
 	EXPECT_EQ(pikemanAlly.valOfBonuses(BonusType::MORALE), 0);
 	EXPECT_EQ(pikemanEnemy.valOfBonuses(BonusType::MORALE), -1);
+
+	heroAine.detachFromSource(armor);
 }
 
 TEST_F(BonusSystemTest, legionPieces)
@@ -297,6 +301,8 @@ TEST_F(BonusSystemTest, legionPieces)
 
 	heroAine.detachFrom(townAndVisitor);
 	EXPECT_EQ(town.valOfBonuses(BonusType::CREATURE_GROWTH, BonusCustomSubtype::creatureLevel(3)), 0);
+
+	heroAine.detachFromSource(legion);
 }
 
 }

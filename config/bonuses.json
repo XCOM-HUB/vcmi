@@ -17,10 +17,18 @@
 	{
 	},
 
+	"ADJACENT_SPELLCASTER":
+	{
+	},
+
 	"ATTACKS_ALL_ADJACENT":
 	{
 	},
-	
+
+	"ALWAYS_MAXIMUM_DAMAGE":
+	{
+	},
+
 	"BASE_TILE_MOVEMENT_COST":
 	{
 		"blockDescriptionPropagation": true
@@ -78,6 +86,11 @@
 	"COMBAT_MANA_BONUS":
 	{
 		"blockDescriptionPropagation": true
+	},
+
+	"CPU_CONTROLLED":
+	{
+
 	},
 
 	"CREATURE_GROWTH":
@@ -201,7 +214,11 @@
 			"bonusSubtype.damageTypeMelee" : null,
 		}
 	},
-	
+
+	"DAMAGE_RECEIVED_CAP":
+	{
+	},
+
 	"GENERATE_RESOURCE":
 	{
 		"blockDescriptionPropagation": true
@@ -334,7 +351,11 @@
 	{
 		"blockDescriptionPropagation": true
 	},
-	
+
+	"MORE_DAMAGE_FROM_SPELL":
+	{
+	},
+
 	"MOVEMENT":
 	{
 		"blockDescriptionPropagation": true
@@ -532,6 +553,16 @@
 	{
 		"blockDescriptionPropagation": true
 	},
+	
+	"MARKETPLACE_ACCESS":
+	{
+		"blockDescriptionPropagation": true
+	},
+	
+	"DEITYOFFIRE":
+	{
+		"blockDescriptionPropagation": true
+	},
 
 	"UNDEAD":
 	{
@@ -577,6 +608,12 @@
 
 	"INVINCIBLE":
 	{
+	},
+	
+	"FORCE_NEUTRAL_ENCOUNTER_STACK_COUNT":
+	{
+		"hidden": true,
+		"blockDescriptionPropagation": true
 	}
 }
 

@@ -22,7 +22,6 @@ VCMI_LIB_NAMESPACE_END
 namespace Ui
 {
 	class MainWindow;
-	const QString teamName = "vcmi";
 	const QString appName = "mapeditor";
 }
 
@@ -50,8 +49,9 @@ public:
 
 	void initializeMap(bool isNew);
 
-	void saveMap();
+	void saveMap(bool force = false);
 	bool openMap(const QString &);
+	void openCampaign(const QString &);
 	
 	//MapView * mapView();
 
@@ -118,6 +118,8 @@ private slots:
 	void on_actionUpdate_appearance_triggered();
 
 	void on_actionRecreate_obstacles_triggered();
+
+	void on_actionMapLayer_triggered();
 
 	void on_actionCut_triggered();
 

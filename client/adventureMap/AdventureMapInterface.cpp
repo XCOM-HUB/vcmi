@@ -37,6 +37,7 @@
 #include "../PlayerLocalState.h"
 #include "../CPlayerInterface.h"
 
+#include "../../lib/mapping/CMap.h"
 #include "../../lib/GameLibrary.h"
 #include "../../lib/IGameSettings.h"
 #include "../../lib/StartInfo.h"
@@ -503,7 +504,7 @@ const CGObjectInstance* AdventureMapInterface::getActiveObject(const int3 &mapPo
 	if (bobjs.empty())
 		return nullptr;
 
-	return *boost::range::max_element(bobjs, &CMapHandler::compareObjectBlitOrder);
+	return *boost::range::max_element(bobjs, &CMap::compareObjectBlitOrder);
 }
 
 void AdventureMapInterface::onTileLeftClicked(const int3 &targetPosition)
@@ -603,7 +604,9 @@ void AdventureMapInterface::onTileHovered(const int3 &targetPosition)
 {
 	if(!shortcuts->optionMapViewActive())
 		return;
-
+	//if the player is not ingame (loser, winner, wrong) we are in a shutdown process
+	if (!GAME->interface()->cb || GAME->interface()->cb->getPlayerStatus(GAME->interface()->playerID) != EPlayerStatus::INGAME)
+		return;
 	//may occur just at the start of game (fake move before full initialization)
 	if(!GAME->interface()->localState->getCurrentArmy())
 		return;
@@ -639,14 +642,14 @@ void AdventureMapInterface::onTileHovered(const int3 &targetPosition)
 		std::string text = GAME->interface()->localState->getCurrentHero() ? objAtTile->getHoverText(GAME->interface()->localState->getCurrentHero()) : objAtTile->getHoverText(GAME->interface()->playerID);
 		boost::replace_all(text,"\n"," ");
 		if (ENGINE->isKeyboardCmdDown())
-			text.append(" (" + std::to_string(targetPosition.x) + ", " + std::to_string(targetPosition.y) + ")");
+			text.append(" (" + std::to_string(targetPosition.x) + ", " + std::to_string(targetPosition.y) + ", " + std::to_string(targetPosition.z) + ")");
 		ENGINE->statusbar()->write(text);
 	}
 	else if(isTargetPositionVisible)
 	{
 		std::string tileTooltipText = GAME->map().getTerrainDescr(targetPosition, false);
 		if (ENGINE->isKeyboardCmdDown())
-			tileTooltipText.append(" (" + std::to_string(targetPosition.x) + ", " + std::to_string(targetPosition.y) + ")");
+			tileTooltipText.append(" (" + std::to_string(targetPosition.x) + ", " + std::to_string(targetPosition.y) + ", " + std::to_string(targetPosition.z) + ")");
 		ENGINE->statusbar()->write(tileTooltipText);
 	}
 
@@ -880,7 +883,11 @@ void AdventureMapInterface::openWorldView(const std::vector<ObjectPosInfo>& obje
 
 void AdventureMapInterface::hotkeyNextTown()
 {
+	int selectedIndex = widget->getTownList()->getSelectedIndex();
 	widget->getTownList()->selectNext();
+
+	if(selectedIndex == widget->getTownList()->getSelectedIndex())
+		widget->getTownList()->refreshSelected();
 }
 
 void AdventureMapInterface::hotkeySwitchMapLevel()
@@ -931,4 +938,9 @@ bool AdventureMapInterface::isValidAdventureSpellTarget(int3 targetPosition) con
 	spells::detail::ProblemImpl problem;
 
 	return spellBeingCasted->getAdventureMechanics().canBeCastAt(problem, GAME->interface()->cb.get(), GAME->interface()->localState->getCurrentHero(), targetPosition);
+}
+
+void AdventureMapInterface::updateActiveState()
+{
+	widget->updateActiveState();
 }

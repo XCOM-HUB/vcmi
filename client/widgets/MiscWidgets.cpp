@@ -22,9 +22,9 @@
 #include "../gui/WindowHandler.h"
 #include "../eventsSDL/InputHandler.h"
 #include "../windows/CMarketWindow.h"
-#include "../widgets/CGarrisonInt.h"
-#include "../widgets/GraphicalPrimitiveCanvas.h"
-#include "../widgets/TextControls.h"
+#include "CGarrisonInt.h"
+#include "GraphicalPrimitiveCanvas.h"
+#include "TextControls.h"
 #include "../windows/CCastleInterface.h"
 #include "../windows/InfoWindows.h"
 #include "../render/Canvas.h"
@@ -623,13 +623,15 @@ void MoraleLuckBox::set(const AFactionMember * node)
 	else if(morale && node && node->getBonusBearer()->hasBonusOfType(BonusType::NO_MORALE))
 	{
 		auto noMorale = node->getBonusBearer()->getBonus(Selector::type()(BonusType::NO_MORALE));
-		text += "\n" + noMorale->Description(GAME->interface()->cb.get());
+		if(GAME->interface())
+			text += "\n" + noMorale->Description(GAME->interface()->cb.get());
 		component.value = 0;
 	}
 	else if (!morale && node && node->getBonusBearer()->hasBonusOfType(BonusType::NO_LUCK))
 	{
 		auto noLuck = node->getBonusBearer()->getBonus(Selector::type()(BonusType::NO_LUCK));
-		text += "\n" + noLuck->Description(GAME->interface()->cb.get());
+		if(GAME->interface())
+			text += "\n" + noLuck->Description(GAME->interface()->cb.get());
 		component.value = 0;
 	}
 	else
@@ -637,7 +639,7 @@ void MoraleLuckBox::set(const AFactionMember * node)
 		std::string addInfo = "";
 		for(auto & bonus : * modifierList)
 		{
-			if(bonus->val) {
+			if(GAME->interface() && bonus->val) {
 				const std::string& description = bonus->Description(GAME->interface()->cb.get());
 				//arraytxt already contains \n
 				if (description.size() && description[0] != '\n')

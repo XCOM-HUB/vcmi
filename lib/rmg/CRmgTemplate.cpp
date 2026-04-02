@@ -155,7 +155,8 @@ ZoneOptions::ZoneOptions():
 	treasureLikeZone(NO_ZONE),
 	customObjectsLikeZone(NO_ZONE),
 	visiblePosition(Point(0, 0)),
-	visibleSize(1.0)
+	visibleSize(1.0),
+	forcedLevel(EZoneLevel::AUTOMATIC)
 {
 }
 
@@ -355,6 +356,16 @@ void ZoneOptions::setVisibleSize(float value)
 	visibleSize = value;
 }
 
+EZoneLevel ZoneOptions::getForcedLevel() const
+{
+	return forcedLevel;
+}
+
+void ZoneOptions::setForcedLevel(EZoneLevel value)
+{
+	forcedLevel = value;
+}
+
 void ZoneOptions::addConnection(const ZoneConnection & connection)
 {
 	connectedZoneIds.push_back(connection.getOtherZoneId(getId()));
@@ -543,6 +554,19 @@ void ZoneOptions::serializeJson(JsonSerializeFormat & handler)
 
 	if(!handler.saving && visibleSize < 0.01)
 		visibleSize = 1.0;
+
+	{
+		static const std::vector<std::string> zoneLevels =
+		{
+			"automatic",
+			"surface",
+			"underground"
+		};
+
+		auto levelIndex = static_cast<int>(forcedLevel);
+		handler.serializeEnum("forcedLevel", levelIndex, static_cast<int>(EZoneLevel::AUTOMATIC), zoneLevels);
+		forcedLevel = static_cast<EZoneLevel>(levelIndex);
+	}
 }
 
 ZoneConnection::ZoneConnection():
@@ -868,6 +892,11 @@ void CRmgTemplate::serializeJson(JsonSerializeFormat & handler)
 	handler.serializeIdArray("bannedSkills", bannedSkills);
 	handler.serializeIdArray("bannedHeroes", bannedHeroes);
 
+	handler.serializeIdArray("enabledSpells", enabledSpells);
+	handler.serializeIdArray("enabledArtifacts", enabledArtifacts);
+	handler.serializeIdArray("enabledSkills", enabledSkills);
+	handler.serializeIdArray("enabledHeroes", enabledHeroes);
+
 	*mapSettings = handler.getCurrent()["settings"];
 
 	{
@@ -976,13 +1005,13 @@ void CRmgTemplate::afterLoad()
 							&rmg::ZoneOptions::setTerrainTypes, 
 							&rmg::ZoneOptions::getTerrainTypeLikeZone,
 							"terrain types");
-		
+
 		inheritZoneProperty(zone, 
 							&rmg::ZoneOptions::getMinesInfo, 
 							&rmg::ZoneOptions::setMinesInfo, 
 							&rmg::ZoneOptions::getMinesLikeZone,
 							"mine types");
-		
+
 		inheritZoneProperty(zone, 
 							&rmg::ZoneOptions::getTreasureInfo, 
 							&rmg::ZoneOptions::setTreasureInfo, 
@@ -1014,7 +1043,7 @@ void CRmgTemplate::afterLoad()
 		zone1->addConnection(connection);
 		zone2->addConnection(connection);
 	}
-	
+
 	if(allowedWaterContent.empty() || allowedWaterContent.count(EWaterContent::RANDOM))
 	{
 		allowedWaterContent.insert(EWaterContent::NONE);

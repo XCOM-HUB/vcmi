@@ -35,7 +35,7 @@ public:
 	explicit TemplateEditor();
 	~TemplateEditor();
 
-	static void showTemplateEditor();
+	static void showTemplateEditor(QWidget *parent);
 
 private slots:
 	void on_actionOpen_triggered();
@@ -58,6 +58,7 @@ private slots:
 	void on_doubleSpinBoxZoneVisSize_valueChanged();
 	void on_comboBoxZoneType_currentTextChanged(const QString &text);
 	void on_comboBoxZoneOwner_currentTextChanged(const QString &text);
+	void on_comboBoxForcedLevel_currentTextChanged(const QString &text);
 	void on_spinBoxZoneSize_valueChanged();
 	void on_spinBoxTownCountPlayer_valueChanged();
 	void on_spinBoxCastleCountPlayer_valueChanged();
@@ -104,13 +105,17 @@ private:
 	bool getAnswerAboutUnsavedChanges();
 	void setTitle();
 	void changed();
+	bool validate();
 	void saveTemplate();
 	void initContent();
+	void setDefaultContent(std::shared_ptr<CRmgTemplate> tpl);
+	void setDefaultContentZone(std::shared_ptr<rmg::ZoneOptions> zone, TRmgTemplateZoneId id);
 	void loadContent(bool autoPosition = false);
 	void saveContent();
 	void loadZoneMenuContent(bool onlyPosition = false);
 	void saveZoneMenuContent();
 	void loadZoneConnectionMenuContent();
+	void updateConnectionAddButton();
 	void updateConnectionLines(bool recreate = false);
 	void autoPositionZones();
 	void updateZonePositions();

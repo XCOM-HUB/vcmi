@@ -125,6 +125,11 @@ QString ModState::getVersion() const
 	return QString::fromStdString(impl.getValue("version").String());
 }
 
+int ModState::getGithubStars() const
+{
+	return impl.getRepositoryValue("githubStars").isNull() ? -1 : impl.getRepositoryValue("githubStars").Integer();
+}
+
 double ModState::getDownloadSizeMegabytes() const
 {
 	return impl.getRepositoryValue("downloadSize").Float();
@@ -167,7 +172,7 @@ QString ModState::getDownloadUrl() const
 
 QPair<QString, QString> ModState::getCompatibleVersionRange() const
 {
-	const JsonNode & compatibility = impl.getValue("compatibility");
+	const JsonNode & compatibility = impl.getLocalValue("compatibility");
 
 	if (compatibility.isNull())
 		return {};

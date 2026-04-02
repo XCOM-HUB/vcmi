@@ -19,6 +19,7 @@
 #include "lobby/ExtraOptionsTab.h"
 #include "lobby/SelectionTab.h"
 #include "lobby/CBonusSelection.h"
+#include "lobby/BattleOnlyModeTab.h"
 #include "globalLobby/GlobalLobbyWindow.h"
 #include "globalLobby/GlobalLobbyServerSetup.h"
 #include "globalLobby/GlobalLobbyClient.h"
@@ -39,6 +40,14 @@
 #include "../lib/campaign/CampaignState.h"
 #include "../lib/serializer/GameConnection.h"
 #include "../lib/texts/CGeneralTextHandler.h"
+
+void ApplyOnLobbyHandlerNetPackVisitor::visitLobbyQuickLoadGame(LobbyQuickLoadGame & pack)
+{
+	assert(handler.getState() == EClientState::GAMEPLAY);
+
+	handler.restartGameplay();
+	handler.sendStartGame();
+}
 
 void ApplyOnLobbyHandlerNetPackVisitor::visitLobbyClientConnected(LobbyClientConnected & pack)
 {
@@ -133,6 +142,9 @@ void ApplyOnLobbyScreenNetPackVisitor::visitLobbyGuiAction(LobbyGuiAction & pack
 	case LobbyGuiAction::OPEN_EXTRA_OPTIONS:
 		lobby->toggleTab(lobby->tabExtraOptions);
 		break;
+	case LobbyGuiAction::BATTLE_MODE:
+		lobby->toggleTab(lobby->tabBattleOnlyMode);
+		break;
 	}
 }
 
@@ -205,7 +217,10 @@ void ApplyOnLobbyScreenNetPackVisitor::visitLobbyUpdateState(LobbyUpdateState & 
 		if(!handler.si->campState->conqueredScenarios().size() && !handler.si->campState->getIntroVideo().empty() && ENGINE->video().open(handler.si->campState->getIntroVideo(), 1))
 		{
 			ENGINE->music().stopMusic();
-			ENGINE->windows().createAndPushWindow<VideoWindow>(handler.si->campState->getIntroVideo(), handler.si->campState->getVideoRim().empty() ? ImagePath::builtin("INTRORIM") : handler.si->campState->getVideoRim(), false, 1, [bonusSel](bool skipped){
+			auto rim = handler.si->campState->getVideoRim().empty() ? ImagePath::builtin("INTRORIM") : handler.si->campState->getVideoRim();
+			if(handler.si->campState->getVideoRim() == ImagePath::builtin("NONE"))
+				rim = ImagePath();
+			ENGINE->windows().createAndPushWindow<VideoWindow>(handler.si->campState->getIntroVideo(), rim, false, 1, [bonusSel](bool skipped){
 				if(!GAME->server().si->campState->getMusic().empty())
 					ENGINE->music().playMusic(GAME->server().si->campState->getMusic(), true, false);
 				ENGINE->windows().pushWindow(bonusSel);
@@ -231,4 +246,10 @@ void ApplyOnLobbyScreenNetPackVisitor::visitLobbyShowMessage(LobbyShowMessage & 
 	
 	lobby->buttonStart->block(false);
 	handler.showServerError(pack.message.toString());
+}
+
+void ApplyOnLobbyScreenNetPackVisitor::visitLobbySetBattleOnlyModeStartInfo(LobbySetBattleOnlyModeStartInfo & pack)
+{
+	if(lobby->tabBattleOnlyMode)
+		lobby->tabBattleOnlyMode->applyStartInfo(pack.startInfo);
 }

@@ -15,11 +15,19 @@
 #include "../VCMIDirs.h"
 
 #ifdef STATIC_AI
-# include "../../AI/VCAI/VCAI.h"
-# include "../../AI/Nullkiller/AIGateway.h"
-# include "../../AI/BattleAI/BattleAI.h"
-# include "../../AI/StupidAI/StupidAI.h"
-# include "../../AI/EmptyAI/CEmptyAI.h"
+#  ifdef ENABLE_NULLKILLER2_AI
+#    include "../../AI/Nullkiller2/AIGateway.h"
+#  endif
+#  ifdef ENABLE_BATTLE_AI
+#    include "../../AI/BattleAI/BattleAI.h"
+#  endif
+#  ifdef ENABLE_STUPID_AI
+#    include "../../AI/StupidAI/StupidAI.h"
+#  endif
+#  ifdef ENABLE_MMAI
+#    include "../../AI/MMAI/MMAI.h"
+#  endif
+#  include "../../AI/EmptyAI/CEmptyAI.h"
 #else
 # ifdef VCMI_WINDOWS
 #  include <windows.h> //for .dll libs
@@ -30,8 +38,8 @@
 
 VCMI_LIB_NAMESPACE_BEGIN
 
-	template<typename rett>
-	std::shared_ptr<rett> createAny(const boost::filesystem::path & libpath, const std::string & methodName)
+template<typename rett>
+std::shared_ptr<rett> createAny(const boost::filesystem::path & libpath, const std::string & methodName)
 {
 #ifdef STATIC_AI
 	// android currently doesn't support loading libs dynamically, so the access to the known libraries
@@ -51,7 +59,7 @@ VCMI_LIB_NAMESPACE_BEGIN
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wcast-function-type"
 #endif
-	HMODULE dll = LoadLibraryW(libpath.c_str());
+	HMODULE dll = LoadLibraryExW(libpath.c_str(), NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
 	if (dll)
 	{
 		getName = reinterpret_cast<TGetNameFun>(GetProcAddress(dll, "GetAiName"));
@@ -106,21 +114,32 @@ VCMI_LIB_NAMESPACE_BEGIN
 template<>
 std::shared_ptr<CGlobalAI> createAny(const boost::filesystem::path & libpath, const std::string & methodName)
 {
-	if(libpath.stem() == "libNullkiller") {
-		return std::make_shared<NKAI::AIGateway>();
-	}
-	else{
-		return std::make_shared<VCAI>();
-	}
+#ifdef ENABLE_NULLKILLER2_AI
+	if(libpath.stem() == "libNullkiller2")
+		return std::make_shared<NK2AI::AIGateway>();
+#endif
+
+	return std::make_shared<CEmptyAI>();
 }
 
 template<>
 std::shared_ptr<CBattleGameInterface> createAny(const boost::filesystem::path & libpath, const std::string & methodName)
 {
+#ifdef ENABLE_BATTLE_AI
 	if(libpath.stem() == "libBattleAI")
 		return std::make_shared<CBattleAI>();
-	else if(libpath.stem() == "libStupidAI")
+#endif
+
+#ifdef ENABLE_STUPID_AI
+	if(libpath.stem() == "libStupidAI")
 		return std::make_shared<CStupidAI>();
+#endif
+
+#ifdef ENABLE_MMAI
+	if(libpath.stem() == "libMMAI")
+		return std::make_shared<MMAI::BAI::Router>();
+#endif
+
 	return std::make_shared<CEmptyAI>();
 }
 

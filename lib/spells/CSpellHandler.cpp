@@ -223,6 +223,11 @@ bool CSpell::isNeutral() const
 	return positiveness == NEUTRAL;
 }
 
+bool CSpell::isPersistent() const
+{
+	return persistent;
+}
+
 boost::logic::tribool CSpell::getPositiveness() const
 {
 	switch (positiveness)
@@ -797,8 +802,9 @@ std::shared_ptr<CSpell> CSpellHandler::loadFromJson(const std::string & scope, c
 	//by default all flags are set to false in constructor
 
 	spell->damage = flags["damage"].Bool(); //do this before "offensive"
-
 	spell->nonMagical = flags["nonMagical"].Bool();
+	spell->persistent = flags["persistent"].Bool();
+
 
 	if(flags["offensive"].Bool())
 	{
@@ -953,7 +959,7 @@ std::shared_ptr<CSpell> CSpellHandler::loadFromJson(const std::string & scope, c
 
 		const si32 levelPower     = levelObject.power = static_cast<si32>(levelNode["power"].Integer());
 
-		if (!spell->isCreatureAbility())
+		if (!levelNode["description"].String().empty())
 			LIBRARY->generaltexth->registerString(scope, spell->getDescriptionTextID(levelIndex), levelNode["description"]);
 
 		levelObject.cost          = static_cast<si32>(levelNode["cost"].Integer());

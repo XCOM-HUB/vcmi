@@ -10,7 +10,7 @@
 
 #pragma once
 
-#include "../lib/constants/EntityIdentifiers.h"
+#include "../../lib/constants/EntityIdentifiers.h"
 
 VCMI_LIB_NAMESPACE_BEGIN
 class Point;
@@ -43,6 +43,7 @@ class AdventureMapShortcuts
 	void worldViewScale1x();
 	void worldViewScale2x();
 	void worldViewScale4x();
+	void viewStatistic();
 	void switchMapLevel();
 	void showQuestlog();
 	void toggleTrackHero();
@@ -66,6 +67,8 @@ class AdventureMapShortcuts
 	void quitGame();
 	void saveGame();
 	void loadGame();
+	void quickSaveGame();
+	void quickLoadGame();
 	void digGrail();
 	void viewPuzzleMap();
 	void restartGame();
@@ -103,6 +106,9 @@ public:
 	bool optionMarketplace();
 	bool optionHeroBoat(EPathfindingLayer layer);
 	bool optionHeroDig();
+	bool optionViewStatistic();
+	bool optionIsLocal();
+	bool optionQuickSaveLoad();
 
 	void setState(EAdventureState newState);
 	EAdventureState getState() const;

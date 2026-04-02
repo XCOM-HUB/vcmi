@@ -81,9 +81,15 @@ CVCMIServer::CVCMIServer(uint16_t port, bool runByClient)
 	logNetwork->trace("CVCMIServer created! UUID: %s", uuid);
 
 	networkHandler = INetworkHandler::createHandler();
+
+	if(state == EServerState::LOBBY)
+		startDiscoveryListener();
 }
 
-CVCMIServer::~CVCMIServer() = default;
+CVCMIServer::~CVCMIServer()
+{
+	stopDiscoveryListener();
+}
 
 uint16_t CVCMIServer::prepare(bool connectToLobby, bool listenForConnections) {
 	if(connectToLobby) {
@@ -146,15 +152,42 @@ void CVCMIServer::setState(EServerState value)
 
 	// do not attempt to restart dying server
 	assert(state != EServerState::SHUTDOWN || state == value);
+
+	if(state != EServerState::LOBBY && value == EServerState::LOBBY && discoveryListener)
+		startDiscoveryListener();
+	if(state == EServerState::LOBBY && value != EServerState::LOBBY && discoveryListener)
+		stopDiscoveryListener();
+
 	state = value;
 
 	if (state == EServerState::SHUTDOWN)
 		networkHandler->stop();
 }
+void CVCMIServer::startDiscoveryListener()
+{
+	if(!discoveryListener)
+		discoveryListener = getNetworkHandler().createServerDiscoveryListener(*this);
+
+	discoveryListener->start();
+}
+
+void CVCMIServer::stopDiscoveryListener()
+{
+	if(discoveryListener)
+	{
+		discoveryListener->stop();
+		discoveryListener.reset();
+	}
+}
 
 EServerState CVCMIServer::getState() const
 {
 	return state;
+}
+
+bool CVCMIServer::isInLobby() const
+{
+	return getState() == EServerState::LOBBY;
 }
 
 std::shared_ptr<GameConnection> CVCMIServer::findConnection(const std::shared_ptr<INetworkConnection> & netConnection)
@@ -209,7 +242,6 @@ void CVCMIServer::prepareToRestart()
 		return;
 	}
 
-	* si = * gh->gs->getInitialStartInfo();
 	setState(EServerState::LOBBY);
 	if (si->campState)
 	{
@@ -247,6 +279,10 @@ bool CVCMIServer::prepareToStartGame()
 			}
 			std::this_thread::sleep_for(std::chrono::milliseconds(50));
 		}
+		//send final progress
+		LobbyLoadProgress loadProgress;
+		loadProgress.progress = std::numeric_limits<Load::Type>::max();
+		announcePack(loadProgress);
 	});
 
 	auto newGH = std::make_shared<CGameHandler>(*this);
@@ -437,7 +473,8 @@ void CVCMIServer::clientConnected(std::shared_ptr<GameConnection> c, std::vector
 {
 	assert(getState() == EServerState::LOBBY);
 
-	c->connectionID = vstd::next(currentClientId, 1);
+	c->connectionID = currentClientId;
+	currentClientId = vstd::next(currentClientId, 1);
 	c->uuid = uuid;
 
 	if(hostClientId == GameConnectionID::INVALID)
@@ -446,20 +483,19 @@ void CVCMIServer::clientConnected(std::shared_ptr<GameConnection> c, std::vector
 		si->mode = mode;
 	}
 
-	auto connID = static_cast<int>(c->connectionID);
+	logNetwork->info("Connection with client %d established. UUID: %s", static_cast<int>(c->connectionID), c->uuid);
 
-	logNetwork->info("Connection with client %d established. UUID: %s", connID, c->uuid);
-
-	PlayerConnectionID id = currentPlayerId;
 	for(auto & name : names)
 	{
-		logNetwork->info("Client %d player: %s", connID, name);
+		logNetwork->info("Client %d player: %s", static_cast<int>(c->connectionID), name);
+		PlayerConnectionID id = currentPlayerId;
+		currentPlayerId = vstd::next(currentPlayerId, 1);
 
 		ClientPlayer cp;
 		cp.connection = c->connectionID;
 		cp.name = name;
 		playerNames.try_emplace(id, cp);
-		announceTxt(boost::str(boost::format("%s (pid %d cid %d) joins the game") % name % static_cast<int>(id) % connID));
+		announceTxt(boost::str(boost::format("%s (pid %d cid %d) joins the game") % name % static_cast<int>(id) % static_cast<int>(c->connectionID)));
 
 		//put new player in first slot with AI
 		for(auto & elem : si->playerInfos)
@@ -470,7 +506,6 @@ void CVCMIServer::clientConnected(std::shared_ptr<GameConnection> c, std::vector
 				break;
 			}
 		}
-		id = vstd::next(id, 1);
 	}
 }
 
@@ -499,6 +534,7 @@ void CVCMIServer::setPlayerConnectedId(PlayerSettings & pset, PlayerConnectionID
 	else
 		pset.name = LIBRARY->generaltexth->allTexts[468]; //Computer
 
+	logGlobal->debug("Player color %d will be controlled from connection %d", pset.color, static_cast<int>(player));
 	pset.connectedPlayerIDs.clear();
 	if(player != PlayerConnectionID::PLAYER_AI)
 		pset.connectedPlayerIDs.insert(player);
@@ -1022,7 +1058,7 @@ void CVCMIServer::multiplayerWelcomeMessage()
 		if(pi.second.isControlledByHuman())
 			humanPlayer++;
 
-	if(humanPlayer < 2) // Singleplayer
+	if(humanPlayer < 2 || mi->mapHeader->battleOnly) // Singleplayer or Battle only mode
 		return;
 
 	gh->playerMessages->broadcastSystemMessage(MetaString::createFromTextID("vcmi.broadcast.command"));

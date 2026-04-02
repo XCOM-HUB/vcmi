@@ -83,6 +83,8 @@ void CMapGenerator::loadConfig()
 		config.questValues.push_back(i.Integer());
 	for(auto & i : randomMapJson["quests"]["rewardValue"].Vector())
 		config.questRewardValues.push_back(i.Integer());
+	config.seerHutValue = randomMapJson["quests"]["seerHutValue"].Integer();
+	logGlobal->info("Seer Hut value: %d", config.seerHutValue);
 	config.pandoraMultiplierGold = randomMapJson["pandoras"]["valueMultiplierGold"].Integer();
 	config.pandoraMultiplierExperience = randomMapJson["pandoras"]["valueMultiplierExperience"].Integer();
 	config.pandoraMultiplierSpells = randomMapJson["pandoras"]["valueMultiplierSpells"].Integer();
@@ -463,7 +465,16 @@ void CMapGenerator::addHeaderInfo()
 	m.version = EMapFormat::VCMI;
 	m.width = mapGenOptions.getWidth();
 	m.height = mapGenOptions.getHeight();
-	m.mapLevels = mapGenOptions.getLevels();
+	m.mapLayers.clear();
+	for(int i = 0; i < mapGenOptions.getLevels(); i++)
+	{
+		if(i == 0)
+			m.mapLayers.push_back(MapLayerId::SURFACE);
+		else if(i == 1)
+			m.mapLayers.push_back(MapLayerId::UNDERGROUND);
+		else
+			m.mapLayers.push_back(MapLayerId::UNKNOWN); //TODO: multilevel support
+	}
 	m.name.appendLocalString(EMetaText::GENERAL_TXT, 740);
 	m.description = getMapDescription();
 	m.difficulty = EMapDifficulty::NORMAL;
@@ -483,6 +494,18 @@ void CMapGenerator::addHeaderInfo()
 
 	for (const auto & hero : mapGenOptions.getMapTemplate()->getBannedHeroes())
 		m.allowedHeroes.erase(hero);
+
+	for (const auto & spell : mapGenOptions.getMapTemplate()->getEnabledSpells())
+		m.allowedSpells.insert(spell);
+
+	for (const auto & artifact : mapGenOptions.getMapTemplate()->getEnabledArtifacts())
+		m.allowedArtifact.insert(artifact);
+
+	for (const auto & skill : mapGenOptions.getMapTemplate()->getEnabledSkills())
+		m.allowedAbilities.insert(skill);
+
+	for (const auto & hero : mapGenOptions.getMapTemplate()->getEnabledHeroes())
+		m.allowedHeroes.insert(hero);
 }
 
 int CMapGenerator::getNextMonlithIndex()

@@ -36,6 +36,7 @@ public:
 	void addAnimationFile(const AnimationPath & path, AnimationLayoutMap & anim);
 
 	AnimationLayoutMap createAdventureMapButton(const ImagePath & overlay, bool small);
+	AnimationLayoutMap createSliderBar(bool brown, bool horizontal, int length);
 
 private:
 	struct PaletteAnimation
@@ -60,10 +61,15 @@ private:
 	CanvasPtr createPaletteShiftedImage(const AnimationPath & source, const std::vector<PaletteAnimation> & animation, int frameIndex, int paletteShiftCounter) const;
 	CanvasPtr createAdventureMapButtonClear(const PlayerColor & player, bool small) const;
 	CanvasPtr createCreatureInfoPanel(int boxesAmount) const;
+	enum CreateResourceWindowType{ ARTIFACTS_BUYING, ARTIFACTS_SELLING, MARKET_RESOURCES, FREELANCERS_GUILD, TRANSFER_RESOURCES };
+	CanvasPtr createResourceWindow(CreateResourceWindowType type, int count, PlayerColor color) const;
 	enum CreatureInfoPanelElement{ BONUS_EFFECTS, SPELL_EFFECTS, BUTTON_PANEL, COMMANDER_BACKGROUND, COMMANDER_ABILITIES };
 	CanvasPtr createCreatureInfoPanelElement(CreatureInfoPanelElement element) const;
 	CanvasPtr createQuestWindow() const;
 	AnimationLayoutMap createGSPButtonClear();
+	AnimationLayoutMap createGSPButton2Arrow();
+	CanvasPtr createGateListColored(PlayerColor color, PlayerColor backColor) const;
+	CanvasPtr createHeroSlotsColored(PlayerColor backColor) const;
 
 	void createPaletteShiftedSprites();
 	void generatePaletteShiftedAnimation(const AnimationPath & source, const std::vector<PaletteAnimation> & animation);
